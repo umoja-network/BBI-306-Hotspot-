@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotspot Deployment Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <!-- Papa Parse CSV Parser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- jsPDF for PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+    :root{
+        --primary:#e0218a;
+        --primary-dark:#b9156d;
+        --secondary:#6c63ff;
+        --success:#16c784;
+        --danger:#ff4d6d;
+        --warning:#f5b700;
+        --bg:#0f172a;
+        --card:#ffffff;
+        --text:#1e293b;
+        --muted:#64748b;
+        --shadow:0 10px 30px rgba(0,0,0,0.15);
+        --glass:rgba(255,255,255,0.85);
+    }
+
+    *{
+        margin:0;
+        padding:0;
+        box-sizing:border-box;
+        font-family:'Segoe UI',sans-serif;
+    }
+
+    body{
+        background:#f1f5f9;
+        overflow:hidden;
+    }
+
+    header{
+        height:72px;
+        background:linear-gradient(135deg,var(--primary),var(--secondary));
+        color:white;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:1.4rem;
+        font-weight:700;
+        letter-spacing:.5px;
+        box-shadow:var(--shadow);
+        position:relative;
+        z-index:1000;
+    }
+
+    #map{
+        height:calc(100vh - 72px);
+        width:100%;
+    }
+
+    #controls{
+        position:absolute;
+        top:90px;
+        left:20px;
+        z-index:900;
+
+        background:var(--glass);
+        backdrop-filter:blur(14px);
+
+        border:1px solid rgba(255,255,255,0.3);
+        border-radius:20px;
+
+        padding:18px;
+        width:320px;
+
+        box-shadow:var(--shadow);
+
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+    }
+
+    #controls button{
+        border:none;
+        padding:12px 14px;
+        border-radius:12px;
+        font-size:.95rem;
+        font-weight:600;
+        cursor:pointer;
+        transition:all .25s ease;
+        color:white;
+    }
+
+    #generateReportBtn{
+        background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    }
+
+    #generateReportBtn:hover{
+        transform:translateY(-2px);
+        box-shadow:0 8px 20px rgba(224,33,138,.35);
+    }
+
+    #clearBtn{
+        background:linear-gradient(135deg,var(--danger),#d90429);
+    }
+
+    #redirectBtn{
+        background:linear-gradient(135deg,var(--secondary),#4f46e5);
+    }
+
+    #controls button:hover{
+        opacity:.95;
+        transform:translateY(-2px);
+    }
+
+    #controls label{
+        font-size:.85rem;
+        font-weight:600;
+        color:var(--muted);
+    }
+
+    #controls input{
+        width:100%;
+        padding:12px;
+        border-radius:12px;
+        border:1px solid #dbe2ea;
+        background:white;
+        font-size:1rem;
+        outline:none;
+        transition:border .2s;
+    }
+
+    #controls input:focus{
+        border-color:var(--primary);
+    }
+
+    #reportContainer{
+        position:absolute;
+        bottom:20px;
+        left:20px;
+
+        width:700px;
+        max-width:calc(100% - 40px);
+
+        max-height:45%;
+
+        background:var(--glass);
+        backdrop-filter:blur(16px);
+
+        border-radius:22px;
+        border:1px solid rgba(255,255,255,0.3);
+
+        box-shadow:var(--shadow);
+
+        padding:22px;
+        z-index:900;
+        overflow:hidden;
+    }
+
+    #reportContainer h3{
+        color:var(--text);
+        margin-bottom:6px;
+        font-size:1.3rem;
+    }
+
+    #reportTitle{
+        color:var(--muted);
+        margin-bottom:16px;
+    }
+
+    .close-btn{
+        position:absolute;
+        right:18px;
+        top:16px;
+
+        width:36px;
+        height:36px;
+
+        border:none;
+        border-radius:50%;
+
+        background:#f1f5f9;
+        color:#334155;
+
+        font-size:1.2rem;
+        cursor:pointer;
+
+        transition:all .2s ease;
+    }
+
+    .close-btn:hover{
+        background:#e2e8f0;
+        transform:rotate(90deg);
+    }
+
+    #downloadPdfBtn,
+    #downloadCsvBtn{
+        padding:10px 14px;
+        border:none;
+        border-radius:10px;
+        cursor:pointer;
+        font-weight:600;
+        margin-right:10px;
+        transition:.2s;
+    }
+
+    #downloadPdfBtn{
+        background:var(--primary);
+        color:white;
+    }
+
+    #downloadCsvBtn{
+        background:var(--secondary);
+        color:white;
+    }
+
+    #downloadPdfBtn:hover,
+    #downloadCsvBtn:hover{
+        transform:translateY(-2px);
+    }
+
+    #reportTable-wrapper{
+        margin-top:18px;
+        border-radius:14px;
+        overflow:auto;
+        border:1px solid #e2e8f0;
+    }
+
+    #reportTable{
+        width:100%;
+        border-collapse:collapse;
+        background:white;
+    }
+
+    #reportTable th{
+        position:sticky;
+        top:0;
+        background:#f8fafc;
+        color:#334155;
+        font-size:.85rem;
+        text-transform:uppercase;
+        letter-spacing:.04em;
+    }
+
+    #reportTable th,
+    #reportTable td{
+        padding:14px;
+        border-bottom:1px solid #eef2f7;
+        text-align:left;
+        font-size:.9rem;
+    }
+
+    #reportTable tr:hover{
+        background:#f8fafc;
+    }
+
+    .info.legend{
+        background:rgba(255,255,255,.92);
+        padding:16px;
+        border-radius:16px;
+        box-shadow:var(--shadow);
+        border:none;
+    }
+
+    .info.legend h4{
+        margin-bottom:10px;
+        color:#0f172a;
+        font-size:1rem;
+    }
+
+    .info.legend img{
+        width:18px;
+        margin-right:8px;
+    }
+
+    .leaflet-popup-content-wrapper{
+        border-radius:16px;
+    }
+
+    .leaflet-popup-content{
+        font-size:.95rem;
+        line-height:1.5;
+    }
+
+    @media(max-width:768px){
+
+        #controls{
+            width:calc(100% - 20px);
+            left:10px;
+            top:82px;
+        }
+
+        #reportContainer{
+            width:calc(100% - 20px);
+            left:10px;
+            bottom:10px;
+            max-height:50%;
+        }
+
+        header{
+            font-size:1rem;
+            text-align:center;
+            padding:0 15px;
+        }
+    }
+</style>
+</head>
+<body>
+
+    <header>
+        BBI Hotspot Deployment Map – BBI 306 & BBI 309
+    </header>
+
+    <div id="map"></div>
+
+    <div id="controls">
+        <button id="generateReportBtn">Generate Replacement Report</button>
+        <button id="clearBtn" style="display:none;">Clear Simulation</button>
+        <!-- New Distance Input -->
+        <label for="distanceInput">Max Distance (km):</label>
+        <input type="number" id="distanceInput" value="5" min="0.1" step="0.1">
+		<button id="redirectBtn">Check 306 Stats</button>
+    </div>
+
+    <div id="reportContainer" style="display:none;">
+        <button id="closeReportBtn" class="close-btn">×</button>
+        <h3>Potential Replacements Report (1-to-1)</h3>
+        <!-- New sub-title for report context -->
+        <p id="reportTitle"></p>
+        <button id="downloadPdfBtn">Download as PDF</button>
+        <button id="downloadCsvBtn">Download as CSV</button>
+        <div id="reportTable-wrapper" style="margin-top: 10px; max-height: 250px; overflow-y: auto;">
+            <table id="reportTable"></table>
+        </div>
+    </div>
+
+
+    <script>
+    const url_gauteng = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWyo15IIbxOM816mdPqIlpiqqZUJVxOWm74_GClOZsmnd4QvajUmTsoyRwoH5KBEK_ZRv00OLVYvZW/pub?gid=1377447223&single=true&output=csv';
+    const url_limpopo = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWyo15IIbxOM816mdPqIlpiqqZUJVxOWm74_GClOZsmnd4QvajUmTsoyRwoH5KBEK_ZRv00OLVYvZW/pub?gid=696386604&single=true&output=csv';
+    const url_bbi309  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWyo15IIbxOM816mdPqIlpiqqZUJVxOWm74_GClOZsmnd4QvajUmTsoyRwoH5KBEK_ZRv00OLVYvZW/pub?gid=1522339905&single=true&output=csv';
+
+    const map = L.map('map').setView([-29.0, 24.0], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Marker Styles
+    const shadowUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png';
+    const iconSize = [25, 41];
+    const iconAnchor = [12, 41];
+    const popupAnchor = [1, -34];
+    const shadowSize = [41, 41];
+
+    const purpleIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png', shadowUrl, iconSize, iconAnchor, popupAnchor, shadowSize });
+    const navyIcon   = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl, iconSize, iconAnchor, popupAnchor, shadowSize });
+    const yellowIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png', shadowUrl, iconSize, iconAnchor, popupAnchor, shadowSize });
+    const redIcon    = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl, iconSize, iconAnchor, popupAnchor, shadowSize });
+    const greyIcon   = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png', shadowUrl, iconSize, iconAnchor, popupAnchor, shadowSize });
+    const greenIcon  = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl, iconSize, iconAnchor, popupAnchor, shadowSize });
+
+    // Layers
+    const gautengLayer = L.layerGroup().addTo(map);
+    const limpopoLayer = L.layerGroup().addTo(map);
+    const bbi309Layer  = L.layerGroup().addTo(map);
+    const simulationLayer = L.layerGroup().addTo(map);
+
+    // Data stores
+    const purpleMarkers = [];
+    const yellowMarkers = [];
+    let replacementReportData = [];
+
+    function loadAndProcessData(url, processFunction, onComplete) {
+        Papa.parse(url, {
+            download: true, header: true, skipEmptyLines: true,
+            complete: results => {
+                results.data.forEach(row => processFunction(row));
+                if (onComplete) onComplete();
+            },
+            error: err => console.error(`Error parsing ${url}:`, err)
+        });
+    }
+
+    function processGauteng(row) {
+        const gps = row['GPS Location'];
+        const mac = (row['MAC Address'] || '').toUpperCase();
+        if (gps && gps.includes(',')) {
+            const [lat, lon] = gps.split(',').map(Number);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                let icon = greyIcon;
+                const isPurple = mac.startsWith('44D1FA') || mac.startsWith('7C27');
+                if (isPurple) icon = purpleIcon;
+                else if (mac.startsWith('48BF')) icon = navyIcon;
+
+                const popupContent = `<b>Device:</b> ${row['Device Name']}<br><b>MAC:</b> ${mac}<br><b>Status:</b> ${row['Status'] || 'N/A'}`;
+                const marker = L.marker([lat, lon], { icon, deviceName: row['Device Name'], mac: mac }).bindPopup(popupContent).addTo(gautengLayer);
+
+                if (isPurple) {
+                    purpleMarkers.push(marker);
+                }
+            }
+        }
+    }
+
+    function processLimpopo(row) {
+        const gps = row['GPS Location'];
+        const mac = (row['MAC Address'] || '').toUpperCase();
+        if (gps && gps.includes(',')) {
+            const [lat, lon] = gps.split(',').map(Number);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                let icon = greyIcon;
+                const isPurple = mac.startsWith('44D1FA') || mac.startsWith('7C27');
+                if (isPurple) icon = purpleIcon;
+                else if (mac.startsWith('48BF')) icon = navyIcon;
+
+                const popupContent = `<b>Device:</b> ${row['Device Name']}<br><b>MAC:</b> ${mac}<br><b>Status:</b> ${row['status'] || 'N/A'}`;
+                const marker = L.marker([lat, lon], { icon, deviceName: row['Device Name'], mac: mac }).bindPopup(popupContent).addTo(limpopoLayer);
+
+                if (isPurple) {
+                    purpleMarkers.push(marker);
+                }
+            }
+        }
+    }
+
+    function processBbi309(row) {
+        const lat = parseFloat(row['GPS Lattitude']);
+        const lon = parseFloat(row['GPS Longitude']);
+        const mac = (row['MAC Address'] || '').toUpperCase();
+        if (!isNaN(lat) && !isNaN(lon)) {
+            let icon = redIcon;
+            const isYellow = mac.startsWith('48BF');
+            if(isYellow) icon = yellowIcon;
+
+            const popupContent = `<b>Name:</b> ${row['HH Full Name']}<br><b>MAC:</b> ${mac}<br><b>Status:</b> ${row['Status'] || 'N/A'}`;
+            const marker = L.marker([lat, lon], { icon, deviceName: row['HH Full Name'], mac: mac }).bindPopup(popupContent).addTo(bbi309Layer);
+            
+            if (isYellow) {
+                yellowMarkers.push(marker);
+            }
+        }
+    }
+    
+    // Updated function to include a maximum distance check
+    function findClosestMarker(sourceMarker, targetMarkers, maxDistance) {
+        if (!targetMarkers || targetMarkers.length === 0) return null;
+
+        let closestMarker = null;
+        let minDistance = maxDistance; // Initialize with the max distance
+
+        targetMarkers.forEach(targetMarker => {
+            const distance = sourceMarker.getLatLng().distanceTo(targetMarker.getLatLng());
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestMarker = targetMarker;
+            }
+        });
+        
+        // If a closestMarker was found, minDistance will be less than maxDistance
+        if (closestMarker) {
+            return { marker: closestMarker, distance: minDistance };
+        }
+        return null; // No marker found within the radius
+    }
+    
+    function simulateReplacement(purpleMarker) {
+        clearSimulation();
+        const maxDistanceKm = parseFloat(document.getElementById('distanceInput').value);
+        const maxDistanceMeters = maxDistanceKm * 1000;
+        
+        const result = findClosestMarker(purpleMarker, yellowMarkers, maxDistanceMeters);
+        if (result && result.marker) {
+            const replacement = result.marker;
+            const distance = (result.distance / 1000).toFixed(2); // in km
+
+            replacement.setIcon(greenIcon);
+            const line = L.polyline([purpleMarker.getLatLng(), replacement.getLatLng()], { color: 'orange' }).addTo(simulationLayer);
+            
+            purpleMarker.bindPopup(`<b>${purpleMarker.options.deviceName}</b><br><b>MAC:</b> ${purpleMarker.options.mac}<br><hr><b>Nearest Replacement:</b><br>${replacement.options.deviceName}<br><b>Distance:</b> ${distance} km`).openPopup();
+            replacement.bindPopup(`<b>${replacement.options.deviceName}</b><br><b>MAC:</b> ${replacement.options.mac}<br><hr><b>Potential Replacement for:</b><br>${purpleMarker.options.deviceName}`);
+            
+            document.getElementById('clearBtn').style.display = 'inline-block';
+        } else {
+            purpleMarker.bindPopup(`<b>${purpleMarker.options.deviceName}</b><br><b>MAC:</b> ${purpleMarker.options.mac}<br><hr><b>No replacement found within ${maxDistanceKm} km.</b>`).openPopup();
+        }
+    }
+
+    function clearSimulation() {
+        simulationLayer.clearLayers();
+        yellowMarkers.forEach(m => m.setIcon(yellowIcon));
+        document.getElementById('clearBtn').style.display = 'none';
+        map.closePopup();
+    }
+    
+    function generateReplacementReport() {
+        clearSimulation();
+        const maxDistanceKm = parseFloat(document.getElementById('distanceInput').value);
+        const maxDistanceMeters = maxDistanceKm * 1000;
+        
+        document.getElementById('reportTitle').innerText = `Replacements found within ${maxDistanceKm} km.`;
+        
+        replacementReportData = [];
+        let availableReplacements = [...yellowMarkers]; 
+
+        purpleMarkers.forEach(purple => {
+            if (availableReplacements.length === 0) return; 
+
+            const result = findClosestMarker(purple, availableReplacements, maxDistanceMeters);
+            
+            if (result && result.marker) {
+                replacementReportData.push({
+                    purpleName: purple.options.deviceName,
+                    purpleMac: purple.options.mac,
+                    yellowName: result.marker.options.deviceName,
+                    yellowMac: result.marker.options.mac,
+                    distance: (result.distance / 1000).toFixed(2) + ' km'
+                });
+                
+                availableReplacements = availableReplacements.filter(marker => marker !== result.marker);
+            }
+        });
+
+        replacementReportData.sort((a, b) => a.purpleName.localeCompare(b.purpleName));
+
+        const table = document.getElementById('reportTable');
+        table.innerHTML = `<thead><tr><th>Device to Replace</th><th>MAC</th><th>Assigned Replacement</th><th>MAC</th><th>Distance</th></tr></thead><tbody></tbody>`;
+        const tbody = table.querySelector('tbody');
+        
+        if (replacementReportData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5">No possible replacements found within ${maxDistanceKm} km.</td></tr>`;
+        } else {
+            replacementReportData.forEach(item => {
+                const row = tbody.insertRow();
+                row.innerHTML = `<td>${item.purpleName}</td><td>${item.purpleMac}</td><td>${item.yellowName}</td><td>${item.yellowMac}</td><td>${item.distance}</td>`;
+            });
+        }
+        
+        document.getElementById('reportContainer').style.display = 'block';
+    }
+
+    function setupEventListeners() {
+        purpleMarkers.forEach(marker => {
+            marker.off('click').on('click', () => simulateReplacement(marker));
+        });
+        
+        document.getElementById('generateReportBtn').addEventListener('click', generateReplacementReport);
+        document.getElementById('clearBtn').addEventListener('click', clearSimulation);
+        
+        document.getElementById('closeReportBtn').addEventListener('click', () => {
+            document.getElementById('reportContainer').style.display = 'none';
+        });
+
+        document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const maxDistanceKm = document.getElementById('distanceInput').value;
+
+            doc.text(`Replacement Report (within ${maxDistanceKm} km)`, 14, 15);
+            
+            doc.autoTable({
+                startY: 20,
+                head: [['Device to Replace', 'MAC', 'Assigned Replacement', 'MAC', 'Distance']],
+                body: replacementReportData.map(Object.values),
+            });
+            
+            doc.save(`one-to-one-replacement-report-${maxDistanceKm}km.pdf`);
+        });
+
+        document.getElementById('downloadCsvBtn').addEventListener('click', () => {
+            const maxDistanceKm = document.getElementById('distanceInput').value;
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Device to Replace,MAC,Assigned Replacement,MAC,Distance\r\n";
+            replacementReportData.forEach(item => {
+                csvContent += `"${item.purpleName}","${item.purpleMac}","${item.yellowName}","${item.yellowMac}","${item.distance}"\r\n`;
+            });
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `one-to-one-replacement-report-${maxDistanceKm}km.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    }
+
+    // Initial Data Loading
+    const promises = [
+        new Promise(resolve => loadAndProcessData(url_gauteng, processGauteng, resolve)),
+        new Promise(resolve => loadAndProcessData(url_limpopo, processLimpopo, resolve)),
+        new Promise(resolve => loadAndProcessData(url_bbi309, processBbi309, resolve)),
+    ];
+
+    Promise.all(promises).then(() => {
+        console.log("All data loaded and processed.");
+        setupEventListeners();
+    });
+
+    L.control.layers(null, {
+        "BBI_306_Gauteng": gautengLayer,
+        "BBI_306_Limpopo": limpopoLayer,
+        "BBI_309": bbi309Layer,
+        "Simulation": simulationLayer
+    }).addTo(map);
+
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'info legend');
+        div.innerHTML = `
+            <h4>Device Legend</h4>
+            <img src="${purpleIcon.options.iconUrl}"> 306 AX820<br>
+            <img src="${navyIcon.options.iconUrl}"> 306 Baicell<br>
+            <img src="${yellowIcon.options.iconUrl}"> BBI 309 Baicell (Replacement Pool)<br>
+            <img src="${redIcon.options.iconUrl}"> BBI 309 Other<br>
+            <img src="${greenIcon.options.iconUrl}"> Suggested Replacement<br>
+            <img src="${greyIcon.options.iconUrl}"> Unknown / Other
+        `;
+        return div;
+    };
+    legend.addTo(map);
+	 document.getElementById('redirectBtn').addEventListener('click', () => {
+        window.location.href = 'BBI_Stats_Dashboard.html';
+      });
+
+    </script>
+
+</body>
+</html>

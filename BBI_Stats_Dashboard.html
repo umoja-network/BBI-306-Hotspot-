@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hotspot Stats Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+  <header>
+    <a href="index.html" class="home-icon" title="Go to Map">
+      <i class="fa-solid fa-house" style="color: rgb(116, 192, 252);"></i>
+  </a>
+    <div class="header-center">
+      <span class="header-title">BBI 306 Hotspot Analytics Dashboard</span>
+      <span id="swap-badge">With Swaps</span>
+    </div>
+    <div class="toggle-wrapper">
+      <span class="toggle-label" id="label-off">Standard</span>
+      <label class="switch">
+        <input type="checkbox" id="swap-toggle">
+        <span class="slider"></span>
+      </label>
+      <span class="toggle-label" id="label-on">With Swaps</span>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="card" id="gauteng-card">Loading Gauteng...</div>
+    <div class="card" id="limpopo-card">Loading Limpopo...</div>
+    <div class="Overall">
+      <div class="card" id="online-percentage-card">Calculating Online %...</div>
+      <div class="card" id="offline-percentage-card">Calculating Offline %...</div>
+    </div>
+    
+  </main>
+
+  <!-- ── Drill-down Modal ── -->
+  <div class="modal-overlay" id="device-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <p class="modal-title" id="modal-title-text">AX820 Online Devices</p>
+          <p class="modal-subtitle" id="modal-subtitle">Gauteng · Standard mode</p>
+        </div>
+        <button class="modal-close" id="modal-close-btn" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-toolbar">
+        <input class="modal-search" type="text" id="device-search" placeholder="Search by name, HP#, MAC, site…">
+      </div>
+      <div class="modal-body" id="modal-body">
+        <div class="loading-spinner"><div class="spinner"></div> Loading devices…</div>
+      </div>
+      <div class="modal-footer">
+        <span id="modal-count"></span>
+        <span>Source: BBI_306_Gauteng sheet</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const apiKey = "AIzaSyBDoDUEjXdXV2zSoiypzy9CGa-KhJat6a8";
+    const spreadsheetId = "1cBnc1BEoxxWaw-ZuudxbvnVCYeQcFdjVdwhFvq-Fyoo";
+
+    async function fetchCell(range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return data.values ? parseInt(data.values[0][0] || "0") : 0;
+    }
+
+    // ── Fetch entire sheet for drill-down ──
+    async function fetchSheetRows(sheetName) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName + "!A:AZ")}?key=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return data.values || [];
+    }
+
+    // ── Column indices (0-based) based on image 2 header row ──
+    // A=0 Status, B=1 Amount Owi, C=2 HP#, D=3 Site ID, E=4 BBI ID#,
+    // F=5 Device Name, G=6 HH Name, H=7 Customer#, I=8 Splynx name,
+    // J=9 HH Telephone, K=10 Province, L=11 District, M=12 Suburb/Town
+    // Z column (col 25) = device type prefix
+
+    // AX820 Online: col Z in ["44D1","7C273C00"] AND col A in ["🟢","🟠"]
+    // AX820 Offline: col Z in ["44D1","7C273C00"] AND col A = "🔴"
+    // Baicells Online: col Z NOT in AX820 prefixes AND col A in ["🟢","🟠"]  (or adjust per your logic)
+
+    const AX820_PREFIXES = ["44D1", "44d1", "7C273C", "7c273c"];
+
+    function isAX820(row) {
+      const colZ = (row[25] || "").toString().trim().toUpperCase();
+      return colZ.startsWith("44D1") || colZ.startsWith("7C273C");
+    }
+
+    function statusEmoji(row) {
+      return (row[0] || "").toString().replace(/\s/g, "");
+    }
+
+    function isOnline(row) {
+      const s = statusEmoji(row);
+      return s === "🟢" || s === "🟠";
+    }
+
+    function isOffline(row) {
+      return statusEmoji(row) === "🔴";
+    }
+
+    // ── Modal state ──
+    let allDeviceRows = [];
+    let currentFilterFn = null;
+    let currentSheetCache = {};
+
+    const modal        = document.getElementById("device-modal");
+    const modalBody    = document.getElementById("modal-body");
+    const modalTitle   = document.getElementById("modal-title-text");
+    const modalSub     = document.getElementById("modal-subtitle");
+    const modalCount   = document.getElementById("modal-count");
+    const searchInput  = document.getElementById("device-search");
+    const closeBtn     = document.getElementById("modal-close-btn");
+
+    closeBtn.addEventListener("click", closeModal);
+    modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+    function closeModal() {
+      modal.classList.remove("open");
+      searchInput.value = "";
+    }
+
+    searchInput.addEventListener("input", () => renderTable(allDeviceRows));
+
+    async function openDrillDown(label, region, withSwaps, filterFn) {
+      modalTitle.textContent = label;
+      modalSub.textContent   = region + " · " + (withSwaps ? "With Swaps" : "Standard mode");
+      modalBody.innerHTML    = '<div class="loading-spinner"><div class="spinner"></div> Loading devices…</div>';
+      modalCount.textContent = "";
+      searchInput.value      = "";
+      modal.classList.add("open");
+
+      // Determine which sheet to pull from
+      let sheetName;
+      if (region === "Gauteng") {
+        sheetName = withSwaps ? "BBI_306_Gauteng_Swapped" : "BBI_306_Gauteng";
+      } else {
+        sheetName = withSwaps ? "BBI_306_Limpopo_Swapped" : "BBI_306_Limpopo";
+      }
+
+      try {
+        // Cache per sheet to avoid re-fetching on repeated opens
+        if (!currentSheetCache[sheetName]) {
+          const rows = await fetchSheetRows(sheetName);
+          currentSheetCache[sheetName] = rows;
+        }
+        const rows = currentSheetCache[sheetName];
+        // Skip header row (row 0), apply filter
+        const header = rows[0] || [];
+        allDeviceRows = rows.slice(1).filter(filterFn);
+        renderTable(allDeviceRows, header);
+      } catch (err) {
+        modalBody.innerHTML = `<div class="no-data">Failed to load devices: ${err.message}</div>`;
+      }
+    }
+
+    function renderTable(rows, header) {
+      const query = searchInput.value.toLowerCase().trim();
+      const filtered = query
+        ? rows.filter(r => r.some(cell => (cell || "").toString().toLowerCase().includes(query)))
+        : rows;
+
+      modalCount.textContent = filtered.length + " device" + (filtered.length !== 1 ? "s" : "");
+
+      if (!filtered.length) {
+        modalBody.innerHTML = '<div class="no-data">No devices found.</div>';
+        return;
+      }
+
+      // Columns to show: Status(0), HP#(2), Site ID(3), Device Name(5), HH Name(6), Province(10), District(11)
+      const cols = [
+        { label: "Status",      idx: 0  },
+        { label: "Name",        idx: 5  },
+        //{ label: "District",    idx: 11 },
+        { label: "MAC Address", idx: 24 },
+        { label: "OW MAC",      idx: 25 },
+        { label: "GPS Lat",     idx: 14 },
+        //{ label: "GPS Long",    idx: 16 },
+      ];
+
+      const ths = cols.map(c => `<th>${c.label}</th>`).join("");
+      const trs = filtered.map(row => {
+        const tds = cols.map(c => {
+          const val = (row[c.idx] || "").toString();
+          if (c.idx === 0) return `<td><span class="status-dot">${val}</span></td>`;
+
+          if (c.idx === 5) {
+            let cleanName = val;
+            // Format: "GT-562-Name-Name" or "LIM-123-Name-Name" — prefix + number + name parts
+            if (/^[A-Z]+-\d+-/i.test(val)) {
+              const parts = val.split("-");
+              cleanName = parts.slice(2).join(" ");
+            // Format: "Sentech-AX820-4" or similar — no pure number as second segment, just remove dashes
+            } 
+            else if (val.includes("-") && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(val)) {
+              cleanName = val.replace(/-/g, " ");
+            }
+            // MAC address format "44:D1:FA:EF:0D:E8" — leave as-is (falls through untouched)
+            return `<td title="${cleanName}">${cleanName}</td>`;
+          }
+          return `<td title="${val}">${val}</td>`;
+          
+        }).join("");
+        return `<tr>${tds}</tr>`;
+      }).join("");
+
+      modalBody.innerHTML = `
+        <table class="device-table">
+          <thead><tr>${ths}</tr></thead>
+          <tbody>${trs}</tbody>
+        </table>`;
+    }
+
+    // ── Main dashboard load ──
+    let currentWithSwaps = false;
+
+    async function loadDashboard(withSwaps) {
+      currentWithSwaps = withSwaps;
+      currentSheetCache = {}; // clear cache on mode switch
+
+      document.getElementById("gauteng-card").innerHTML = "Loading Gauteng...";
+      document.getElementById("limpopo-card").innerHTML = "Loading Limpopo...";
+      document.getElementById("online-percentage-card").innerHTML = "Calculating Online %...";
+      document.getElementById("offline-percentage-card").innerHTML = "Calculating Offline %...";
+
+      // ── Gauteng ──
+      let ax820OnlineG, ax820OfflineG, baicellsOnlineG, baicellsOfflineG;
+
+      if (withSwaps) {
+        ax820OnlineG    = await fetchCell("Gauteng_swap_stats!B23");
+        ax820OfflineG   = await fetchCell("Gauteng_swap_stats!B24");
+        baicellsOnlineG = await fetchCell("Gauteng_swap_stats!B13");
+        baicellsOfflineG= await fetchCell("Gauteng_swap_stats!B14");
+      } else {
+        ax820OnlineG    = await fetchCell("Gauteng_306_Stats!B23");
+        ax820OfflineG   = await fetchCell("Gauteng_306_Stats!B24");
+        baicellsOnlineG = await fetchCell("Gauteng_306_Stats!B13");
+        baicellsOfflineG= await fetchCell("Gauteng_306_Stats!B14");
+      }
+
+      const gautengTotalOnline  = ax820OnlineG + baicellsOnlineG;
+      const gautengTotalOffline = ax820OfflineG + baicellsOfflineG;
+      const gautengGrandTotal   = gautengTotalOnline + gautengTotalOffline;
+      const gautengOnlinePct    = gautengGrandTotal ? ((gautengTotalOnline  / gautengGrandTotal) * 100).toFixed(1) : "0";
+      const gautengOfflinePct   = gautengGrandTotal ? ((gautengTotalOffline / gautengGrandTotal) * 100).toFixed(1) : "0";
+
+      document.getElementById("gauteng-card").innerHTML = `
+        <h2>Gauteng</h2>
+        <div class="stat">
+          <span>AX820 Online</span>
+          <span class="badge online clickable" data-action="drill"
+                data-label="AX820 Online — Gauteng" data-region="Gauteng" data-type="ax820-online">
+            ${ax820OnlineG}
+          </span>
+        </div>
+        <div class="stat">
+          <span>AX820 Offline</span>
+          <span class="badge offline clickable" data-action="drill"
+                data-label="AX820 Offline — Gauteng" data-region="Gauteng" data-type="ax820-offline">
+            ${ax820OfflineG}
+          </span>
+        </div>
+        <div class="stat">
+          <span>Baicells Online</span>
+          <span class="badge online clickable" data-action="drill"
+                data-label="Baicells Online — Gauteng" data-region="Gauteng" data-type="baicells-online">
+            ${baicellsOnlineG}
+          </span>
+        </div>
+        <div class="stat">
+          <span>Baicells Offline</span>
+          <span class="badge offline clickable" data-action="drill"
+                data-label="Baicells Offline — Gauteng" data-region="Gauteng" data-type="baicells-offline">
+            ${baicellsOfflineG}
+          </span>
+        </div>
+        <hr>
+        <div class="stat"><strong>Total Online</strong><span class="badge online">${gautengTotalOnline}</span></div>
+        <div class="stat"><strong>Total Offline</strong><span class="badge offline">${gautengTotalOffline}</span></div>
+        <div class="stat"><strong>Grand Total</strong><span class="badge" style="background-color: #0080FE;">${gautengGrandTotal}</span></div>
+        <hr>
+        <div class="stat"><span>Online %</span><span class="badge online">${gautengOnlinePct}%</span></div>
+        <div class="stat"><span>Offline %</span><span class="badge offline">${gautengOfflinePct}%</span></div>
+      `;
+
+      // ── Limpopo ──
+      let ax820OnlineL, ax820OfflineL, baicellsOnlineL, baicellsOfflineL;
+
+      if (withSwaps) {
+        ax820OnlineL    = await fetchCell("Limpopo_swap_stats!B22");
+        ax820OfflineL   = await fetchCell("Limpopo_swap_stats!B23");
+        baicellsOnlineL = await fetchCell("Limpopo_swap_stats!B25");
+        baicellsOfflineL= await fetchCell("Limpopo_swap_stats!B26");
+      } else {
+        ax820OnlineL    = await fetchCell("Limpopo_306_Stats!F2");
+        ax820OfflineL   = await fetchCell("Limpopo_306_Stats!G2");
+        baicellsOnlineL = await fetchCell("Limpopo_306_Stats!A6");
+        baicellsOfflineL= await fetchCell("Limpopo_306_Stats!B6");
+      }
+
+      const limpopoTotalOnline  = ax820OnlineL + baicellsOnlineL;
+      const limpopoTotalOffline = ax820OfflineL + baicellsOfflineL;
+      const limpopoGrandTotal   = limpopoTotalOnline + limpopoTotalOffline;
+      const limpopoOnlinePct    = limpopoGrandTotal ? ((limpopoTotalOnline  / limpopoGrandTotal) * 100).toFixed(1) : "0";
+      const limpopoOfflinePct   = limpopoGrandTotal ? ((limpopoTotalOffline / limpopoGrandTotal) * 100).toFixed(1) : "0";
+
+      document.getElementById("limpopo-card").innerHTML = `
+        <h2>Limpopo</h2>
+        <div class="stat">
+          <span>AX820 Online</span>
+          <span class="badge online clickable" data-action="drill"
+                data-label="AX820 Online — Limpopo" data-region="Limpopo" data-type="ax820-online">
+            ${ax820OnlineL}
+          </span>
+        </div>
+        <div class="stat">
+          <span>AX820 Offline</span>
+          <span class="badge offline clickable" data-action="drill"
+                data-label="AX820 Offline — Limpopo" data-region="Limpopo" data-type="ax820-offline">
+            ${ax820OfflineL}
+          </span>
+        </div>
+        <div class="stat">
+          <span>Baicells Online</span>
+          <span class="badge online clickable" data-action="drill"
+                data-label="Baicells Online — Limpopo" data-region="Limpopo" data-type="baicells-online">
+            ${baicellsOnlineL}
+          </span>
+        </div>
+        <div class="stat">
+          <span>Baicells Offline</span>
+          <span class="badge offline clickable" data-action="drill"
+                data-label="Baicells Offline — Limpopo" data-region="Limpopo" data-type="baicells-offline">
+            ${baicellsOfflineL}
+          </span>
+        </div>
+        <hr>
+        <div class="stat"><strong>Total Online</strong><span class="badge online">${limpopoTotalOnline}</span></div>
+        <div class="stat"><strong>Total Offline</strong><span class="badge offline">${limpopoTotalOffline}</span></div>
+        <div class="stat"><strong>Grand Total</strong><span class="badge" style="background-color: #0080FE;">${limpopoGrandTotal}</span></div>
+        <hr>
+        <div class="stat"><span>Online %</span><span class="badge online">${limpopoOnlinePct}%</span></div>
+        <div class="stat"><span>Offline %</span><span class="badge offline">${limpopoOfflinePct}%</span></div>
+      `;
+
+      // ── Overall ──
+      const totalOnline  = gautengTotalOnline + limpopoTotalOnline;
+      const totalOffline = gautengTotalOffline + limpopoTotalOffline;
+      const total        = totalOnline + totalOffline;
+      const pctOnline    = total ? ((totalOnline  / total) * 100).toFixed(1) : "0";
+      const pctOffline   = total ? ((totalOffline / total) * 100).toFixed(1) : "0";
+
+      document.getElementById("online-percentage-card").innerHTML = `
+        <h2>Overall Percentage Online</h2>
+        <div class="stat"><span>Total Devices</span><span>${total}</span></div>
+        <div class="stat"><span>Online</span><span class="badge online">${pctOnline}%</span></div>
+      `;
+      document.getElementById("offline-percentage-card").innerHTML = `
+        <h2>Overall Percentage Offline</h2>
+        <div class="stat"><span>Total Devices</span><span>${total}</span></div>
+        <div class="stat"><span>Offline</span><span class="badge offline">${pctOffline}%</span></div>
+      `;
+
+      // Attach drill-down click handlers after cards render
+      attachDrillHandlers();
+    }
+
+    // ── Filter functions per type ──
+    function getFilter(type) {
+      switch (type) {
+        case "ax820-online":
+          return row => isAX820(row) && statusEmoji(row) === "🟢";
+        case "ax820-offline":
+          return row => isAX820(row) && isOffline(row);
+        case "baicells-online":
+          return row => !isAX820(row) && statusEmoji(row) === "🟢";
+        case "baicells-offline":
+          return row => !isAX820(row) && isOffline(row);
+        default:
+          return () => true;
+      }
+    }
+
+    function attachDrillHandlers() {
+      document.querySelectorAll("[data-action='drill']").forEach(el => {
+        el.addEventListener("click", () => {
+          const label  = el.dataset.label;
+          const region = el.dataset.region;
+          const type   = el.dataset.type;
+          openDrillDown(label, region, currentWithSwaps, getFilter(type));
+        });
+      });
+    }
+
+    // ── Toggle logic ──
+    const toggle    = document.getElementById("swap-toggle");
+    const labelOn   = document.getElementById("label-on");
+    const labelOff  = document.getElementById("label-off");
+    const swapBadge = document.getElementById("swap-badge");
+
+    let refreshInterval;
+
+    function startRefresh(withSwaps) {
+      clearInterval(refreshInterval);
+      loadDashboard(withSwaps);
+      refreshInterval = setInterval(() => loadDashboard(withSwaps), 20 * 60 * 1000);
+    }
+
+    toggle.addEventListener("change", () => {
+      const withSwaps = toggle.checked;
+      labelOn.classList.toggle("active", withSwaps);
+      labelOff.classList.toggle("active", !withSwaps);
+      swapBadge.style.display = withSwaps ? "inline" : "none";
+      startRefresh(withSwaps);
+    });
+
+    labelOff.classList.add("active");
+    startRefresh(false);
+  </script>
+
+</body>
+</html>

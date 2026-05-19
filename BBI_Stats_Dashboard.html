@@ -3,59 +3,739 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Hotspot Stats Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+  <title>BBI 306 Stats Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+  :root {
+      --sidebar-bg: #0d1117;
+      --sidebar-width: 220px;
+      --pink: #e91e8c;
+      --pink-light: #ff4db2;
+      --green: #22c55e;
+      --green-bg: #dcfce7;
+      --red: #ef4444;
+      --red-bg: #fee2e2;
+      --blue: #3b82f6;
+      --blue-bg: #dbeafe;
+      --purple: #8b5cf6;
+      --text-primary: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --card-bg: #ffffff;
+      --page-bg: #f8fafc;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.07);
+      --radius: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      display: flex;
+      min-height: 100vh;
+      background: var(--page-bg);
+      color: var(--text-primary);
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+      width: var(--sidebar-width);
+      background: var(--sidebar-bg);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      z-index: 100;
+      border-right: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .sidebar-logo {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .sidebar-logo span {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--pink);
+      letter-spacing: -0.5px;
+  }
+
+  .sidebar-logo small {
+      display: block;
+      font-size: 0.68rem;
+      color: rgba(255,255,255,0.35);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+  }
+
+  .nav-section {
+      padding: 16px 12px;
+      flex: 1;
+  }
+
+  .nav-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.25);
+      padding: 0 8px;
+      margin-bottom: 6px;
+      margin-top: 12px;
+  }
+
+  .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      color: rgba(255,255,255,0.55);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      margin-bottom: 2px;
+  }
+
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
+  .nav-item.active { background: var(--pink); color: white; }
+  .nav-item i { width: 16px; text-align: center; font-size: 0.85rem; }
+
+  .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+  }
+
+  .user-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--pink);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.75rem; color: white; flex-shrink: 0;
+  }
+
+  .user-info span { display: block; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.8); }
+  .user-info small { font-size: 0.7rem; color: rgba(255,255,255,0.35); }
+
+  /* ── MAIN LAYOUT ── */
+  #main {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+  }
+
+  #topbar {
+      height: 60px;
+      background: white;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      gap: 16px;
+      position: sticky; top: 0; z-index: 50;
+  }
+
+  .topbar-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      flex: 1;
+  }
+
+  /* ── MODE TOGGLE ── */
+  .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--page-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 14px;
+  }
+
+  .toggle-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: color 0.2s;
+  }
+
+  .toggle-label.active { color: var(--pink); }
+
+  .switch { position: relative; width: 46px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+
+  .slider {
+      position: absolute; inset: 0;
+      background: #cbd5e1;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: 0.25s;
+  }
+
+  .slider::before {
+      content: "";
+      position: absolute;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      top: 3px; left: 3px;
+      transition: 0.25s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+
+  .switch input:checked + .slider { background: var(--pink); }
+  .switch input:checked + .slider::before { transform: translateX(22px); }
+
+  #swap-badge {
+      display: none;
+      background: #fce7f3;
+      color: var(--pink);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+  }
+
+  /* ── PAGE CONTENT ── */
+  .page-content {
+      padding: 28px;
+  }
+
+  .page-header {
+      margin-bottom: 24px;
+  }
+
+  .page-header h1 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text-primary);
+  }
+
+  .page-header p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+  }
+
+  /* ── STAT CARDS (top row) ── */
+  .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+  }
+
+  .stat-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      transition: box-shadow 0.2s, transform 0.2s;
+  }
+
+  .stat-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+  }
+
+  .stat-card-body {}
+
+  .stat-card-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+  }
+
+  .stat-card-value {
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1;
+  }
+
+  .stat-card-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+  }
+
+  .stat-card-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+  }
+
+  .icon-green { background: var(--green-bg); color: var(--green); }
+  .icon-red   { background: var(--red-bg);   color: var(--red); }
+  .icon-blue  { background: var(--blue-bg);  color: var(--blue); }
+  .icon-pink  { background: #fce7f3;         color: var(--pink); }
+
+  /* ── REGION PANELS ── */
+  .region-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+  }
+
+  .region-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+  }
+
+  .region-card-header {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+  }
+
+  .region-card-header h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+  }
+
+  .region-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: var(--text-muted);
+  }
+
+  .region-card-body {
+      padding: 8px 0;
+  }
+
+  .region-stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 22px;
+      border-bottom: 1px solid #f8fafc;
+      transition: background 0.15s;
+  }
+
+  .region-stat-row:last-child { border-bottom: none; }
+  .region-stat-row:hover { background: #fafafa; }
+
+  .region-stat-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      font-weight: 500;
+  }
+
+  .pill {
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: white;
+      cursor: default;
+      transition: transform 0.15s, box-shadow 0.15s;
+      border: none;
+  }
+
+  .pill.clickable {
+      cursor: pointer;
+  }
+
+  .pill.clickable:hover {
+      transform: scale(1.06);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+  }
+
+  .pill-green  { background: var(--green); }
+  .pill-red    { background: var(--red); }
+  .pill-blue   { background: var(--blue); }
+  .pill-grey   { background: #94a3b8; }
+
+  .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+  }
+
+  .region-stat-row.total .region-stat-label {
+      font-weight: 700;
+      color: var(--text-primary);
+  }
+
+  /* ── OVERALL CARDS ── */
+  .overall-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+  }
+
+  .overall-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 22px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+  }
+
+  .overall-icon {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+  }
+
+  .overall-body {}
+
+  .overall-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+  }
+
+  .overall-value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-top: 2px;
+  }
+
+  .overall-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+  }
+
+  .text-green { color: var(--green); }
+  .text-red   { color: var(--red); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,0.5);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px; z-index: 3000;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+      width: 100%; max-width: 1100px;
+      background: white;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.2);
+      animation: modalIn 0.22s ease;
+  }
+
+  @keyframes modalIn {
+      from { opacity:0; transform:translateY(18px); }
+      to   { opacity:1; transform:none; }
+  }
+
+  .modal-header {
+      padding: 22px 28px;
+      background: var(--sidebar-bg);
+      color: white;
+      display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .modal-title { font-size: 1rem; font-weight: 700; }
+  .modal-subtitle { margin-top: 3px; opacity: 0.6; font-size: 0.82rem; }
+
+  .modal-close {
+      width: 36px; height: 36px;
+      border: none; border-radius: 9px;
+      background: rgba(255,255,255,0.12);
+      color: white; cursor: pointer;
+      transition: 0.2s; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+  }
+
+  .modal-close:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
+
+  .modal-toolbar {
+      padding: 16px 24px;
+      background: var(--page-bg);
+      border-bottom: 1px solid var(--border);
+  }
+
+  .modal-search {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+      background: white;
+  }
+
+  .modal-search:focus { border-color: var(--pink); }
+
+  .modal-body { max-height: 58vh; overflow: auto; }
+
+  .device-table { width: 100%; border-collapse: collapse; }
+
+  .device-table thead th {
+      position: sticky; top: 0;
+      background: var(--page-bg);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+  }
+
+  .device-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.85rem;
+  }
+
+  .device-table tbody tr:hover td { background: #f8fafc; }
+
+  .modal-footer {
+      padding: 14px 24px;
+      display: flex; justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+  }
+
+  /* Loading */
+  .loading-spinner {
+      padding: 50px;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      color: var(--text-muted);
+  }
+
+  .spinner {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--pink);
+      animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .no-data { padding: 60px; text-align: center; color: var(--text-muted); }
+
+  /* Loading skeleton for cards */
+  .skeleton-line {
+      height: 14px; border-radius: 6px;
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      margin-bottom: 8px;
+  }
+
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* Mobile */
+  @media (max-width: 1024px) {
+      .stats-grid { grid-template-columns: repeat(2,1fr); }
+  }
+
+  @media (max-width: 768px) {
+      #sidebar { display: none; }
+      #main { margin-left: 0; }
+      .region-grid, .overall-grid, .stats-grid { grid-template-columns: 1fr; }
+  }
+  </style>
 </head>
 <body>
 
-  <header>
-    <a href="index.html" class="home-icon" title="Go to Map">
-      <i class="fa-solid fa-house" style="color: rgb(116, 192, 252);"></i>
-  </a>
-    <div class="header-center">
-      <span class="header-title">BBI 306 Hotspot Analytics Dashboard</span>
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <img src="data:image/png;base64,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" alt="Umoja" style="height:36px;width:auto;display:block;">
+    </div>
+    <nav class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <a class="nav-item" href="index.html">
+        <i class="fa-solid fa-map"></i> Deployment Map
+      </a>
+      <a class="nav-item active" href="#">
+        <i class="fa-solid fa-chart-pie"></i> Stats Dashboard
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar">BO</div>
+        <div class="user-info">
+          <span>BBI Ops</span>
+          <small>Administrator</small>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <span class="topbar-title">BBI 306 Analytics Dashboard</span>
       <span id="swap-badge">With Swaps</span>
+      <div class="toggle-group">
+        <span class="toggle-label active" id="label-off">Standard</span>
+        <label class="switch">
+          <input type="checkbox" id="swap-toggle">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label" id="label-on">With Swaps</span>
+      </div>
     </div>
-    <div class="toggle-wrapper">
-      <span class="toggle-label" id="label-off">Standard</span>
-      <label class="switch">
-        <input type="checkbox" id="swap-toggle">
-        <span class="slider"></span>
-      </label>
-      <span class="toggle-label" id="label-on">With Swaps</span>
-    </div>
-  </header>
 
-  <main class="dashboard">
-    <div class="card" id="gauteng-card">Loading Gauteng...</div>
-    <div class="card" id="limpopo-card">Loading Limpopo...</div>
-    <div class="Overall">
-      <div class="card" id="online-percentage-card">Calculating Online %...</div>
-      <div class="card" id="offline-percentage-card">Calculating Offline %...</div>
-    </div>
-    
-  </main>
+    <div class="page-content">
+      <div class="page-header">
+        <h1>Project Overview</h1>
+        <p>Live device statistics across Gauteng and Limpopo regions</p>
+      </div>
 
-  <!-- ── Drill-down Modal ── -->
-  <div class="modal-overlay" id="device-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+      <!-- Top summary stat cards -->
+      <div class="stats-grid" id="summary-cards">
+        <div class="stat-card">
+          <div class="stat-card-body">
+            <div class="stat-card-label">Total Devices</div>
+            <div class="stat-card-value" id="sc-total">—</div>
+            <div class="stat-card-sub">Both regions</div>
+          </div>
+          <div class="stat-card-icon icon-blue"><i class="fa-solid fa-server"></i></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-body">
+            <div class="stat-card-label">Online</div>
+            <div class="stat-card-value text-green" id="sc-online">—</div>
+            <div class="stat-card-sub" id="sc-online-pct">—</div>
+          </div>
+          <div class="stat-card-icon icon-green"><i class="fa-solid fa-circle-check"></i></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-body">
+            <div class="stat-card-label">Offline</div>
+            <div class="stat-card-value text-red" id="sc-offline">—</div>
+            <div class="stat-card-sub" id="sc-offline-pct">—</div>
+          </div>
+          <div class="stat-card-icon icon-red"><i class="fa-solid fa-circle-xmark"></i></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-body">
+            <div class="stat-card-label">Uptime Rate</div>
+            <div class="stat-card-value" id="sc-rate">—</div>
+            <div class="stat-card-sub">Network health</div>
+          </div>
+          <div class="stat-card-icon icon-pink"><i class="fa-solid fa-signal"></i></div>
+        </div>
+      </div>
+
+      <!-- Region detail cards -->
+      <div class="region-grid">
+        <div class="region-card" id="gauteng-card">
+          <div class="region-card-header">
+            <h2>Gauteng</h2>
+            <span class="region-badge">Loading…</span>
+          </div>
+          <div class="region-card-body">
+            <div class="skeleton-line" style="margin:12px 22px;width:60%"></div>
+            <div class="skeleton-line" style="margin:8px 22px;width:80%"></div>
+            <div class="skeleton-line" style="margin:8px 22px;width:70%"></div>
+          </div>
+        </div>
+        <div class="region-card" id="limpopo-card">
+          <div class="region-card-header">
+            <h2>Limpopo</h2>
+            <span class="region-badge">Loading…</span>
+          </div>
+          <div class="region-card-body">
+            <div class="skeleton-line" style="margin:12px 22px;width:60%"></div>
+            <div class="skeleton-line" style="margin:8px 22px;width:80%"></div>
+            <div class="skeleton-line" style="margin:8px 22px;width:70%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overall percentage cards -->
+      <div class="overall-grid">
+        <div class="overall-card">
+          <div class="overall-icon icon-green"><i class="fa-solid fa-circle-check"></i></div>
+          <div class="overall-body">
+            <div class="overall-label">Overall Online Rate</div>
+            <div class="overall-value text-green" id="overall-online-pct">—</div>
+            <div class="overall-sub" id="overall-online-sub">Calculating…</div>
+          </div>
+        </div>
+        <div class="overall-card">
+          <div class="overall-icon icon-red"><i class="fa-solid fa-circle-xmark"></i></div>
+          <div class="overall-body">
+            <div class="overall-label">Overall Offline Rate</div>
+            <div class="overall-value text-red" id="overall-offline-pct">—</div>
+            <div class="overall-sub" id="overall-offline-sub">Calculating…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="device-modal">
     <div class="modal">
       <div class="modal-header">
         <div>
-          <p class="modal-title" id="modal-title-text">AX820 Online Devices</p>
-          <p class="modal-subtitle" id="modal-subtitle">Gauteng · Standard mode</p>
+          <p class="modal-title" id="modal-title-text">Devices</p>
+          <p class="modal-subtitle" id="modal-subtitle"></p>
         </div>
-        <button class="modal-close" id="modal-close-btn" aria-label="Close">✕</button>
+        <button class="modal-close" id="modal-close-btn">✕</button>
       </div>
       <div class="modal-toolbar">
-        <input class="modal-search" type="text" id="device-search" placeholder="Search by name, HP#, MAC, site…">
+        <input class="modal-search" type="text" id="device-search" placeholder="Search by name, MAC, GPS…">
       </div>
       <div class="modal-body" id="modal-body">
         <div class="loading-spinner"><div class="spinner"></div> Loading devices…</div>
       </div>
       <div class="modal-footer">
         <span id="modal-count"></span>
-        <span>Source: BBI_306_Gauteng sheet</span>
+        <span>Source: BBI_306 sheet</span>
       </div>
     </div>
   </div>
@@ -66,349 +746,249 @@
 
     async function fetchCell(range) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
+      const res = await fetch(url);
+      const data = await res.json();
       return data.values ? parseInt(data.values[0][0] || "0") : 0;
     }
 
-    // ── Fetch entire sheet for drill-down ──
     async function fetchSheetRows(sheetName) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName + "!A:AZ")}?key=${apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
+      const res = await fetch(url);
+      const data = await res.json();
       return data.values || [];
     }
 
-    // ── Column indices (0-based) based on image 2 header row ──
-    // A=0 Status, B=1 Amount Owi, C=2 HP#, D=3 Site ID, E=4 BBI ID#,
-    // F=5 Device Name, G=6 HH Name, H=7 Customer#, I=8 Splynx name,
-    // J=9 HH Telephone, K=10 Province, L=11 District, M=12 Suburb/Town
-    // Z column (col 25) = device type prefix
-
-    // AX820 Online: col Z in ["44D1","7C273C00"] AND col A in ["🟢","🟠"]
-    // AX820 Offline: col Z in ["44D1","7C273C00"] AND col A = "🔴"
-    // Baicells Online: col Z NOT in AX820 prefixes AND col A in ["🟢","🟠"]  (or adjust per your logic)
-
-    const AX820_PREFIXES = ["44D1", "44d1", "7C273C", "7c273c"];
-
     function isAX820(row) {
-      const colZ = (row[25] || "").toString().trim().toUpperCase();
-      return colZ.startsWith("44D1") || colZ.startsWith("7C273C");
+      const v = (row[25] || "").toString().trim().toUpperCase();
+      return v.startsWith("44D1") || v.startsWith("7C273C");
     }
 
     function statusEmoji(row) {
       return (row[0] || "").toString().replace(/\s/g, "");
     }
 
-    function isOnline(row) {
-      const s = statusEmoji(row);
-      return s === "🟢" || s === "🟠";
-    }
+    function isOffline(row) { return statusEmoji(row) === "🔴"; }
 
-    function isOffline(row) {
-      return statusEmoji(row) === "🔴";
-    }
-
-    // ── Modal state ──
-    let allDeviceRows = [];
-    let currentFilterFn = null;
-    let currentSheetCache = {};
-
-    const modal        = document.getElementById("device-modal");
-    const modalBody    = document.getElementById("modal-body");
-    const modalTitle   = document.getElementById("modal-title-text");
-    const modalSub     = document.getElementById("modal-subtitle");
-    const modalCount   = document.getElementById("modal-count");
-    const searchInput  = document.getElementById("device-search");
-    const closeBtn     = document.getElementById("modal-close-btn");
+    // ── MODAL ──
+    let allDeviceRows = [], currentSheetCache = {};
+    const modal       = document.getElementById("device-modal");
+    const modalBody   = document.getElementById("modal-body");
+    const modalTitle  = document.getElementById("modal-title-text");
+    const modalSub    = document.getElementById("modal-subtitle");
+    const modalCount  = document.getElementById("modal-count");
+    const searchInput = document.getElementById("device-search");
+    const closeBtn    = document.getElementById("modal-close-btn");
 
     closeBtn.addEventListener("click", closeModal);
     modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
     document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+    searchInput.addEventListener("input", () => renderTable(allDeviceRows));
 
     function closeModal() {
       modal.classList.remove("open");
       searchInput.value = "";
     }
 
-    searchInput.addEventListener("input", () => renderTable(allDeviceRows));
-
     async function openDrillDown(label, region, withSwaps, filterFn) {
       modalTitle.textContent = label;
-      modalSub.textContent   = region + " · " + (withSwaps ? "With Swaps" : "Standard mode");
-      modalBody.innerHTML    = '<div class="loading-spinner"><div class="spinner"></div> Loading devices…</div>';
+      modalSub.textContent = region + " · " + (withSwaps ? "With Swaps" : "Standard");
+      modalBody.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading devices…</div>';
       modalCount.textContent = "";
-      searchInput.value      = "";
+      searchInput.value = "";
       modal.classList.add("open");
 
-      // Determine which sheet to pull from
-      let sheetName;
-      if (region === "Gauteng") {
-        sheetName = withSwaps ? "BBI_306_Gauteng_Swapped" : "BBI_306_Gauteng";
-      } else {
-        sheetName = withSwaps ? "BBI_306_Limpopo_Swapped" : "BBI_306_Limpopo";
-      }
+      const sheetName = region === "Gauteng"
+        ? (withSwaps ? "BBI_306_Gauteng_Swapped" : "BBI_306_Gauteng")
+        : (withSwaps ? "BBI_306_Limpopo_Swapped" : "BBI_306_Limpopo");
 
       try {
-        // Cache per sheet to avoid re-fetching on repeated opens
         if (!currentSheetCache[sheetName]) {
-          const rows = await fetchSheetRows(sheetName);
-          currentSheetCache[sheetName] = rows;
+          currentSheetCache[sheetName] = await fetchSheetRows(sheetName);
         }
         const rows = currentSheetCache[sheetName];
-        // Skip header row (row 0), apply filter
-        const header = rows[0] || [];
         allDeviceRows = rows.slice(1).filter(filterFn);
-        renderTable(allDeviceRows, header);
+        renderTable(allDeviceRows);
       } catch (err) {
-        modalBody.innerHTML = `<div class="no-data">Failed to load devices: ${err.message}</div>`;
+        modalBody.innerHTML = `<div class="no-data">Failed to load: ${err.message}</div>`;
       }
     }
 
-    function renderTable(rows, header) {
+    function renderTable(rows) {
       const query = searchInput.value.toLowerCase().trim();
-      const filtered = query
-        ? rows.filter(r => r.some(cell => (cell || "").toString().toLowerCase().includes(query)))
-        : rows;
-
+      const filtered = query ? rows.filter(r => r.some(c => (c||"").toString().toLowerCase().includes(query))) : rows;
       modalCount.textContent = filtered.length + " device" + (filtered.length !== 1 ? "s" : "");
+      if (!filtered.length) { modalBody.innerHTML = '<div class="no-data">No devices found.</div>'; return; }
 
-      if (!filtered.length) {
-        modalBody.innerHTML = '<div class="no-data">No devices found.</div>';
-        return;
-      }
-
-      // Columns to show: Status(0), HP#(2), Site ID(3), Device Name(5), HH Name(6), Province(10), District(11)
       const cols = [
-        { label: "Status",      idx: 0  },
-        { label: "Name",        idx: 5  },
-        //{ label: "District",    idx: 11 },
-        { label: "MAC Address", idx: 24 },
-        { label: "OW MAC",      idx: 25 },
-        { label: "GPS Lat",     idx: 14 },
-        //{ label: "GPS Long",    idx: 16 },
+        { label: "Status",   idx: 0  },
+        { label: "Name",     idx: 5  },
+        { label: "MAC",      idx: 24 },
+        { label: "OW MAC",   idx: 25 },
+        { label: "GPS Lat",  idx: 14 },
       ];
 
       const ths = cols.map(c => `<th>${c.label}</th>`).join("");
       const trs = filtered.map(row => {
         const tds = cols.map(c => {
           const val = (row[c.idx] || "").toString();
-          if (c.idx === 0) return `<td><span class="status-dot">${val}</span></td>`;
-
+          if (c.idx === 0) return `<td>${val}</td>`;
           if (c.idx === 5) {
-            let cleanName = val;
-            // Format: "GT-562-Name-Name" or "LIM-123-Name-Name" — prefix + number + name parts
-            if (/^[A-Z]+-\d+-/i.test(val)) {
-              const parts = val.split("-");
-              cleanName = parts.slice(2).join(" ");
-            // Format: "Sentech-AX820-4" or similar — no pure number as second segment, just remove dashes
-            } 
-            else if (val.includes("-") && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(val)) {
-              cleanName = val.replace(/-/g, " ");
-            }
-            // MAC address format "44:D1:FA:EF:0D:E8" — leave as-is (falls through untouched)
-            return `<td title="${cleanName}">${cleanName}</td>`;
+            let name = val;
+            if (/^[A-Z]+-\d+-/i.test(val)) name = val.split("-").slice(2).join(" ");
+            else if (val.includes("-")) name = val.replace(/-/g, " ");
+            return `<td>${name}</td>`;
           }
-          return `<td title="${val}">${val}</td>`;
-          
+          if (c.idx === 24 || c.idx === 25) return `<td><code style="font-size:0.75rem;background:#f1f5f9;padding:2px 7px;border-radius:4px">${val}</code></td>`;
+          return `<td>${val}</td>`;
         }).join("");
         return `<tr>${tds}</tr>`;
       }).join("");
 
-      modalBody.innerHTML = `
-        <table class="device-table">
-          <thead><tr>${ths}</tr></thead>
-          <tbody>${trs}</tbody>
-        </table>`;
+      modalBody.innerHTML = `<table class="device-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
     }
 
-    // ── Main dashboard load ──
-    let currentWithSwaps = false;
-
-    async function loadDashboard(withSwaps) {
-      currentWithSwaps = withSwaps;
-      currentSheetCache = {}; // clear cache on mode switch
-
-      document.getElementById("gauteng-card").innerHTML = "Loading Gauteng...";
-      document.getElementById("limpopo-card").innerHTML = "Loading Limpopo...";
-      document.getElementById("online-percentage-card").innerHTML = "Calculating Online %...";
-      document.getElementById("offline-percentage-card").innerHTML = "Calculating Offline %...";
-
-      // ── Gauteng ──
-      let ax820OnlineG, ax820OfflineG, baicellsOnlineG, baicellsOfflineG;
-
-      if (withSwaps) {
-        ax820OnlineG    = await fetchCell("Gauteng_swap_stats!B23");
-        ax820OfflineG   = await fetchCell("Gauteng_swap_stats!B24");
-        baicellsOnlineG = await fetchCell("Gauteng_swap_stats!B13");
-        baicellsOfflineG= await fetchCell("Gauteng_swap_stats!B14");
-      } else {
-        ax820OnlineG    = await fetchCell("Gauteng_306_Stats!B23");
-        ax820OfflineG   = await fetchCell("Gauteng_306_Stats!B24");
-        baicellsOnlineG = await fetchCell("Gauteng_306_Stats!B13");
-        baicellsOfflineG= await fetchCell("Gauteng_306_Stats!B14");
-      }
-
-      const gautengTotalOnline  = ax820OnlineG + baicellsOnlineG;
-      const gautengTotalOffline = ax820OfflineG + baicellsOfflineG;
-      const gautengGrandTotal   = gautengTotalOnline + gautengTotalOffline;
-      const gautengOnlinePct    = gautengGrandTotal ? ((gautengTotalOnline  / gautengGrandTotal) * 100).toFixed(1) : "0";
-      const gautengOfflinePct   = gautengGrandTotal ? ((gautengTotalOffline / gautengGrandTotal) * 100).toFixed(1) : "0";
-
-      document.getElementById("gauteng-card").innerHTML = `
-        <h2>Gauteng</h2>
-        <div class="stat">
-          <span>AX820 Online</span>
-          <span class="badge online clickable" data-action="drill"
-                data-label="AX820 Online — Gauteng" data-region="Gauteng" data-type="ax820-online">
-            ${ax820OnlineG}
-          </span>
-        </div>
-        <div class="stat">
-          <span>AX820 Offline</span>
-          <span class="badge offline clickable" data-action="drill"
-                data-label="AX820 Offline — Gauteng" data-region="Gauteng" data-type="ax820-offline">
-            ${ax820OfflineG}
-          </span>
-        </div>
-        <div class="stat">
-          <span>Baicells Online</span>
-          <span class="badge online clickable" data-action="drill"
-                data-label="Baicells Online — Gauteng" data-region="Gauteng" data-type="baicells-online">
-            ${baicellsOnlineG}
-          </span>
-        </div>
-        <div class="stat">
-          <span>Baicells Offline</span>
-          <span class="badge offline clickable" data-action="drill"
-                data-label="Baicells Offline — Gauteng" data-region="Gauteng" data-type="baicells-offline">
-            ${baicellsOfflineG}
-          </span>
-        </div>
-        <hr>
-        <div class="stat"><strong>Total Online</strong><span class="badge online">${gautengTotalOnline}</span></div>
-        <div class="stat"><strong>Total Offline</strong><span class="badge offline">${gautengTotalOffline}</span></div>
-        <div class="stat"><strong>Grand Total</strong><span class="badge" style="background-color: #0080FE;">${gautengGrandTotal}</span></div>
-        <hr>
-        <div class="stat"><span>Online %</span><span class="badge online">${gautengOnlinePct}%</span></div>
-        <div class="stat"><span>Offline %</span><span class="badge offline">${gautengOfflinePct}%</span></div>
-      `;
-
-      // ── Limpopo ──
-      let ax820OnlineL, ax820OfflineL, baicellsOnlineL, baicellsOfflineL;
-
-      if (withSwaps) {
-        ax820OnlineL    = await fetchCell("Limpopo_swap_stats!B22");
-        ax820OfflineL   = await fetchCell("Limpopo_swap_stats!B23");
-        baicellsOnlineL = await fetchCell("Limpopo_swap_stats!B25");
-        baicellsOfflineL= await fetchCell("Limpopo_swap_stats!B26");
-      } else {
-        ax820OnlineL    = await fetchCell("Limpopo_306_Stats!F2");
-        ax820OfflineL   = await fetchCell("Limpopo_306_Stats!G2");
-        baicellsOnlineL = await fetchCell("Limpopo_306_Stats!A6");
-        baicellsOfflineL= await fetchCell("Limpopo_306_Stats!B6");
-      }
-
-      const limpopoTotalOnline  = ax820OnlineL + baicellsOnlineL;
-      const limpopoTotalOffline = ax820OfflineL + baicellsOfflineL;
-      const limpopoGrandTotal   = limpopoTotalOnline + limpopoTotalOffline;
-      const limpopoOnlinePct    = limpopoGrandTotal ? ((limpopoTotalOnline  / limpopoGrandTotal) * 100).toFixed(1) : "0";
-      const limpopoOfflinePct   = limpopoGrandTotal ? ((limpopoTotalOffline / limpopoGrandTotal) * 100).toFixed(1) : "0";
-
-      document.getElementById("limpopo-card").innerHTML = `
-        <h2>Limpopo</h2>
-        <div class="stat">
-          <span>AX820 Online</span>
-          <span class="badge online clickable" data-action="drill"
-                data-label="AX820 Online — Limpopo" data-region="Limpopo" data-type="ax820-online">
-            ${ax820OnlineL}
-          </span>
-        </div>
-        <div class="stat">
-          <span>AX820 Offline</span>
-          <span class="badge offline clickable" data-action="drill"
-                data-label="AX820 Offline — Limpopo" data-region="Limpopo" data-type="ax820-offline">
-            ${ax820OfflineL}
-          </span>
-        </div>
-        <div class="stat">
-          <span>Baicells Online</span>
-          <span class="badge online clickable" data-action="drill"
-                data-label="Baicells Online — Limpopo" data-region="Limpopo" data-type="baicells-online">
-            ${baicellsOnlineL}
-          </span>
-        </div>
-        <div class="stat">
-          <span>Baicells Offline</span>
-          <span class="badge offline clickable" data-action="drill"
-                data-label="Baicells Offline — Limpopo" data-region="Limpopo" data-type="baicells-offline">
-            ${baicellsOfflineL}
-          </span>
-        </div>
-        <hr>
-        <div class="stat"><strong>Total Online</strong><span class="badge online">${limpopoTotalOnline}</span></div>
-        <div class="stat"><strong>Total Offline</strong><span class="badge offline">${limpopoTotalOffline}</span></div>
-        <div class="stat"><strong>Grand Total</strong><span class="badge" style="background-color: #0080FE;">${limpopoGrandTotal}</span></div>
-        <hr>
-        <div class="stat"><span>Online %</span><span class="badge online">${limpopoOnlinePct}%</span></div>
-        <div class="stat"><span>Offline %</span><span class="badge offline">${limpopoOfflinePct}%</span></div>
-      `;
-
-      // ── Overall ──
-      const totalOnline  = gautengTotalOnline + limpopoTotalOnline;
-      const totalOffline = gautengTotalOffline + limpopoTotalOffline;
-      const total        = totalOnline + totalOffline;
-      const pctOnline    = total ? ((totalOnline  / total) * 100).toFixed(1) : "0";
-      const pctOffline   = total ? ((totalOffline / total) * 100).toFixed(1) : "0";
-
-      document.getElementById("online-percentage-card").innerHTML = `
-        <h2>Overall Percentage Online</h2>
-        <div class="stat"><span>Total Devices</span><span>${total}</span></div>
-        <div class="stat"><span>Online</span><span class="badge online">${pctOnline}%</span></div>
-      `;
-      document.getElementById("offline-percentage-card").innerHTML = `
-        <h2>Overall Percentage Offline</h2>
-        <div class="stat"><span>Total Devices</span><span>${total}</span></div>
-        <div class="stat"><span>Offline</span><span class="badge offline">${pctOffline}%</span></div>
-      `;
-
-      // Attach drill-down click handlers after cards render
-      attachDrillHandlers();
-    }
-
-    // ── Filter functions per type ──
     function getFilter(type) {
       switch (type) {
-        case "ax820-online":
-          return row => isAX820(row) && statusEmoji(row) === "🟢";
-        case "ax820-offline":
-          return row => isAX820(row) && isOffline(row);
-        case "baicells-online":
-          return row => !isAX820(row) && statusEmoji(row) === "🟢";
-        case "baicells-offline":
-          return row => !isAX820(row) && isOffline(row);
-        default:
-          return () => true;
+        case "ax820-online":    return row => isAX820(row)  && statusEmoji(row) === "🟢";
+        case "ax820-offline":   return row => isAX820(row)  && isOffline(row);
+        case "baicells-online": return row => !isAX820(row) && statusEmoji(row) === "🟢";
+        case "baicells-offline":return row => !isAX820(row) && isOffline(row);
+        default: return () => true;
       }
     }
 
     function attachDrillHandlers() {
       document.querySelectorAll("[data-action='drill']").forEach(el => {
         el.addEventListener("click", () => {
-          const label  = el.dataset.label;
-          const region = el.dataset.region;
-          const type   = el.dataset.type;
-          openDrillDown(label, region, currentWithSwaps, getFilter(type));
+          openDrillDown(el.dataset.label, el.dataset.region, currentWithSwaps, getFilter(el.dataset.type));
         });
       });
     }
 
-    // ── Toggle logic ──
+    // ── BUILD REGION CARD ──
+    function buildRegionCard(id, regionName, ax820Online, ax820Offline, baicellsOnline, baicellsOffline) {
+      const totalOnline  = ax820Online + baicellsOnline;
+      const totalOffline = ax820Offline + baicellsOffline;
+      const grand        = totalOnline + totalOffline;
+      const onlinePct    = grand ? ((totalOnline / grand) * 100).toFixed(1) : "0";
+
+      document.getElementById(id).innerHTML = `
+        <div class="region-card-header">
+          <h2>${regionName}</h2>
+          <span class="region-badge">${grand} devices · ${onlinePct}% online</span>
+        </div>
+        <div class="region-card-body">
+          <div class="region-stat-row">
+            <span class="region-stat-label">AX820 Online</span>
+            <button class="pill pill-green clickable" data-action="drill"
+              data-label="AX820 Online — ${regionName}" data-region="${regionName}" data-type="ax820-online">${ax820Online}</button>
+          </div>
+          <div class="region-stat-row">
+            <span class="region-stat-label">AX820 Offline</span>
+            <button class="pill pill-red clickable" data-action="drill"
+              data-label="AX820 Offline — ${regionName}" data-region="${regionName}" data-type="ax820-offline">${ax820Offline}</button>
+          </div>
+          <div class="region-stat-row">
+            <span class="region-stat-label">Baicells Online</span>
+            <button class="pill pill-green clickable" data-action="drill"
+              data-label="Baicells Online — ${regionName}" data-region="${regionName}" data-type="baicells-online">${baicellsOnline}</button>
+          </div>
+          <div class="region-stat-row">
+            <span class="region-stat-label">Baicells Offline</span>
+            <button class="pill pill-red clickable" data-action="drill"
+              data-label="Baicells Offline — ${regionName}" data-region="${regionName}" data-type="baicells-offline">${baicellsOffline}</button>
+          </div>
+          <div class="divider"></div>
+          <div class="region-stat-row total">
+            <span class="region-stat-label">Total Online</span>
+            <span class="pill pill-green">${totalOnline}</span>
+          </div>
+          <div class="region-stat-row total">
+            <span class="region-stat-label">Total Offline</span>
+            <span class="pill pill-red">${totalOffline}</span>
+          </div>
+          <div class="region-stat-row total">
+            <span class="region-stat-label">Grand Total</span>
+            <span class="pill pill-blue">${grand}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    let currentWithSwaps = false;
+
+    async function loadDashboard(withSwaps) {
+      currentWithSwaps = withSwaps;
+      currentSheetCache = {};
+
+      // Show loading states
+      ['gauteng-card','limpopo-card'].forEach(id => {
+        const card = document.getElementById(id);
+        const header = card.querySelector('.region-card-header') || card;
+        card.innerHTML = `<div class="region-card-header"><h2>${id.includes('gauteng') ? 'Gauteng':'Limpopo'}</h2><span class="region-badge">Loading…</span></div><div class="region-card-body"><div class="skeleton-line" style="margin:14px 22px;width:65%"></div><div class="skeleton-line" style="margin:8px 22px;width:80%"></div><div class="skeleton-line" style="margin:8px 22px;width:72%"></div><div class="skeleton-line" style="margin:8px 22px;width:58%"></div></div>`;
+      });
+      ['sc-total','sc-online','sc-offline','sc-rate','overall-online-pct','overall-offline-pct'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.textContent = '—';
+      });
+
+      // Gauteng
+      let ax820OnG, ax820OffG, baiOnG, baiOffG;
+      if (withSwaps) {
+        ax820OnG  = await fetchCell("Gauteng_swap_stats!B23");
+        ax820OffG = await fetchCell("Gauteng_swap_stats!B24");
+        baiOnG    = await fetchCell("Gauteng_swap_stats!B13");
+        baiOffG   = await fetchCell("Gauteng_swap_stats!B14");
+      } else {
+        ax820OnG  = await fetchCell("Gauteng_306_Stats!B23");
+        ax820OffG = await fetchCell("Gauteng_306_Stats!B24");
+        baiOnG    = await fetchCell("Gauteng_306_Stats!B13");
+        baiOffG   = await fetchCell("Gauteng_306_Stats!B14");
+      }
+      buildRegionCard('gauteng-card', 'Gauteng', ax820OnG, ax820OffG, baiOnG, baiOffG);
+
+      // Limpopo
+      let ax820OnL, ax820OffL, baiOnL, baiOffL;
+      if (withSwaps) {
+        ax820OnL  = await fetchCell("Limpopo_swap_stats!B22");
+        ax820OffL = await fetchCell("Limpopo_swap_stats!B23");
+        baiOnL    = await fetchCell("Limpopo_swap_stats!B25");
+        baiOffL   = await fetchCell("Limpopo_swap_stats!B26");
+      } else {
+        ax820OnL  = await fetchCell("Limpopo_306_Stats!F2");
+        ax820OffL = await fetchCell("Limpopo_306_Stats!G2");
+        baiOnL    = await fetchCell("Limpopo_306_Stats!A6");
+        baiOffL   = await fetchCell("Limpopo_306_Stats!B6");
+      }
+      buildRegionCard('limpopo-card', 'Limpopo', ax820OnL, ax820OffL, baiOnL, baiOffL);
+
+      // Summary
+      const gOn  = ax820OnG + baiOnG,  gOff = ax820OffG + baiOffG;
+      const lOn  = ax820OnL + baiOnL,  lOff = ax820OffL + baiOffL;
+      const totalOn  = gOn + lOn;
+      const totalOff = gOff + lOff;
+      const total    = totalOn + totalOff;
+      const pctOn    = total ? ((totalOn  / total) * 100).toFixed(1) : "0";
+      const pctOff   = total ? ((totalOff / total) * 100).toFixed(1) : "0";
+
+      document.getElementById('sc-total').textContent  = total;
+      document.getElementById('sc-online').textContent = totalOn;
+      document.getElementById('sc-offline').textContent= totalOff;
+      document.getElementById('sc-rate').textContent   = pctOn + '%';
+      document.getElementById('sc-online-pct').textContent  = pctOn  + '% of fleet';
+      document.getElementById('sc-offline-pct').textContent = pctOff + '% of fleet';
+      document.getElementById('overall-online-pct').textContent  = pctOn  + '%';
+      document.getElementById('overall-offline-pct').textContent = pctOff + '%';
+      document.getElementById('overall-online-sub').textContent  = totalOn  + ' of ' + total + ' devices online';
+      document.getElementById('overall-offline-sub').textContent = totalOff + ' of ' + total + ' devices offline';
+
+      attachDrillHandlers();
+    }
+
+    // ── TOGGLE ──
     const toggle    = document.getElementById("swap-toggle");
     const labelOn   = document.getElementById("label-on");
     const labelOff  = document.getElementById("label-off");
     const swapBadge = document.getElementById("swap-badge");
-
     let refreshInterval;
 
     function startRefresh(withSwaps) {
@@ -418,16 +998,15 @@
     }
 
     toggle.addEventListener("change", () => {
-      const withSwaps = toggle.checked;
-      labelOn.classList.toggle("active", withSwaps);
-      labelOff.classList.toggle("active", !withSwaps);
-      swapBadge.style.display = withSwaps ? "inline" : "none";
-      startRefresh(withSwaps);
+      const ws = toggle.checked;
+      labelOn.classList.toggle("active", ws);
+      labelOff.classList.toggle("active", !ws);
+      swapBadge.style.display = ws ? "inline" : "none";
+      startRefresh(ws);
     });
 
     labelOff.classList.add("active");
     startRefresh(false);
   </script>
-
 </body>
 </html>

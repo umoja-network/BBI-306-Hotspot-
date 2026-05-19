@@ -5,7 +5,807 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hotspot Deployment Map</title>
 
-    <!-- Leaflet CSS -->
+    <!-- Leaflet CSS --><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBI Hotspot Deployment Map</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+    :root {
+        --sidebar-bg: #0d1117;
+        --sidebar-width: 220px;
+        --pink: #e91e8c;
+        --pink-light: #ff4db2;
+        --green: #22c55e;
+        --red: #ef4444;
+        --blue: #3b82f6;
+        --purple: #8b5cf6;
+        --text-primary: #0f172a;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --card-bg: #ffffff;
+        --page-bg: #f8fafc;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+        --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        background: var(--page-bg);
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+        width: var(--sidebar-width);
+        background: var(--sidebar-bg);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        z-index: 1000;
+        border-right: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .sidebar-logo {
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .sidebar-logo span {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--pink);
+        letter-spacing: -0.5px;
+    }
+
+    .sidebar-logo small {
+        display: block;
+        font-size: 0.68rem;
+        color: rgba(255,255,255,0.35);
+        margin-top: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .nav-section {
+        padding: 16px 12px;
+        flex: 1;
+    }
+
+    .nav-label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(255,255,255,0.25);
+        padding: 0 8px;
+        margin-bottom: 6px;
+        margin-top: 12px;
+    }
+
+    .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 9px;
+        color: rgba(255,255,255,0.55);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        margin-bottom: 2px;
+    }
+
+    .nav-item:hover {
+        background: rgba(255,255,255,0.07);
+        color: rgba(255,255,255,0.85);
+    }
+
+    .nav-item.active {
+        background: var(--pink);
+        color: white;
+    }
+
+    .nav-item i {
+        width: 16px;
+        text-align: center;
+        font-size: 0.85rem;
+    }
+
+    .sidebar-footer {
+        padding: 16px;
+        border-top: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .user-chip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.06);
+    }
+
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--pink);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.75rem;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .user-info span {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .user-info small {
+        font-size: 0.7rem;
+        color: rgba(255,255,255,0.35);
+    }
+
+    /* ── MAIN ── */
+    #main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    #topbar {
+        height: 60px;
+        background: white;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        gap: 16px;
+        flex-shrink: 0;
+    }
+
+    .topbar-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        flex: 1;
+    }
+
+    .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .distance-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--page-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 12px;
+    }
+
+    .distance-group label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .distance-group input {
+        width: 56px;
+        border: none;
+        background: transparent;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-family: inherit;
+        outline: none;
+    }
+
+    .btn {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+        white-space: nowrap;
+    }
+
+    .btn-pink {
+        background: var(--pink);
+        color: white;
+    }
+
+    .btn-pink:hover {
+        background: var(--pink-light);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(233,30,140,0.35);
+    }
+
+    .btn-danger {
+        background: #fef2f2;
+        color: var(--red);
+        border: 1px solid #fecaca;
+    }
+
+    .btn-danger:hover {
+        background: #fee2e2;
+    }
+
+    .btn-outline {
+        background: white;
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+    }
+
+    .btn-outline:hover {
+        background: var(--page-bg);
+    }
+
+    #map-wrapper {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    #map {
+        height: 100%;
+        width: 100%;
+    }
+
+    /* ── LEGEND ── */
+    .umoja-legend {
+        position: absolute;
+        bottom: 24px;
+        right: 16px;
+        z-index: 900;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        box-shadow: var(--shadow-md);
+        min-width: 200px;
+    }
+
+    .umoja-legend h4 {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+    }
+
+    .legend-item img {
+        width: 14px;
+        height: auto;
+    }
+
+    /* ── REPORT PANEL ── */
+    #reportContainer {
+        position: absolute;
+        bottom: 24px;
+        left: 24px;
+        width: 680px;
+        max-width: calc(100vw - var(--sidebar-width) - 48px);
+        max-height: 48%;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        padding: 20px;
+        z-index: 900;
+        display: none;
+        flex-direction: column;
+    }
+
+    .report-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+
+    .report-header h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    #reportTitle {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 3px;
+    }
+
+    .report-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+        flex-shrink: 0;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+        border-radius: 7px;
+    }
+
+    #reportTable-wrapper {
+        overflow-y: auto;
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+    }
+
+    #reportTable {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #reportTable thead th {
+        position: sticky;
+        top: 0;
+        background: var(--page-bg);
+        padding: 10px 14px;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    #reportTable tbody td {
+        padding: 10px 14px;
+        font-size: 0.82rem;
+        color: var(--text-primary);
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    #reportTable tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    #reportTable tbody tr:hover td {
+        background: #f8fafc;
+    }
+
+    .close-btn {
+        width: 30px;
+        height: 30px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: white;
+        color: var(--text-muted);
+        font-size: 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .close-btn:hover {
+        background: var(--page-bg);
+        color: var(--text-primary);
+    }
+
+    /* Leaflet overrides */
+    .leaflet-popup-content-wrapper {
+        border-radius: 10px;
+        box-shadow: var(--shadow-md);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .leaflet-popup-content {
+        font-size: 0.85rem;
+        line-height: 1.6;
+        color: var(--text-primary);
+    }
+
+    .leaflet-control-layers {
+        border-radius: 10px !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: var(--shadow-md) !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: 0.82rem !important;
+    }
+
+    .leaflet-control-zoom {
+        border-radius: 10px !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: var(--shadow-sm) !important;
+    }
+
+    .leaflet-control-zoom a {
+        border-radius: 0 !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
+
+    @media (max-width: 768px) {
+        #sidebar { display: none; }
+        .topbar-actions { gap: 6px; }
+        .distance-group label { display: none; }
+    }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+        <div class="sidebar-logo">
+            <img src="data:image/png;base64,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" alt="Umoja" style="height:36px;width:auto;display:block;">
+        </div>
+        <nav class="nav-section">
+            <div class="nav-label">Navigation</div>
+            <a class="nav-item active" href="#">
+                <i class="fa-solid fa-map"></i> Deployment Map
+            </a>
+            <a class="nav-item" href="BBI_Stats_Dashboard.html">
+                <i class="fa-solid fa-chart-pie"></i> Stats Dashboard
+            </a>
+            <div class="nav-label">Layers</div>
+            <div class="nav-item" id="toggleGauteng">
+                <i class="fa-solid fa-layer-group"></i> BBI 306 Gauteng
+            </div>
+            <div class="nav-item" id="toggleLimpopo">
+                <i class="fa-solid fa-layer-group"></i> BBI 306 Limpopo
+            </div>
+            <div class="nav-item" id="toggle309">
+                <i class="fa-solid fa-layer-group"></i> BBI 309
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-chip">
+                <div class="user-avatar">BO</div>
+                <div class="user-info">
+                    <span>BBI Ops</span>
+                    <small>Administrator</small>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div id="main">
+        <div id="topbar">
+            <span class="topbar-title">Hotspot Deployment Map — BBI 306 &amp; BBI 309</span>
+            <div class="topbar-actions">
+                <div class="distance-group">
+                    <label>Max Distance:</label>
+                    <input type="number" id="distanceInput" value="5" min="0.1" step="0.1">
+                    <span style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">km</span>
+                </div>
+                <button class="btn btn-pink" id="generateReportBtn">
+                    <i class="fa-solid fa-file-lines"></i> Generate Report
+                </button>
+                <button class="btn btn-danger" id="clearBtn" style="display:none;">
+                    <i class="fa-solid fa-xmark"></i> Clear
+                </button>
+                <a href="BBI_Stats_Dashboard.html" class="btn btn-outline">
+                    <i class="fa-solid fa-chart-bar"></i> 306 Stats
+                </a>
+            </div>
+        </div>
+
+        <div id="map-wrapper">
+            <div id="map"></div>
+
+            <!-- Custom Legend -->
+            <div class="umoja-legend">
+                <h4>Device Legend</h4>
+                <div class="legend-item">
+                    <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png">
+                    <span>306 AX820</span>
+                </div>
+                <div class="legend-item">
+                    <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png">
+                    <span>306 Baicell</span>
+                </div>
+                <div class="legend-item">
+                    <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png">
+                    <span>309 Baicell (Pool)</span>
+                </div>
+                <div class="legend-item">
+                    <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png">
+                    <span>309 Other</span>
+                </div>
+                <div class="legend-item">
+                    <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png">
+                    <span>Suggested Replacement</span>
+                </div>
+                <div class="legend-item">
+                    <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png">
+                    <span>Unknown / Other</span>
+                </div>
+            </div>
+
+            <!-- Report Panel -->
+            <div id="reportContainer">
+                <div class="report-header">
+                    <div>
+                        <h3>Potential Replacements Report (1-to-1)</h3>
+                        <p id="reportTitle"></p>
+                    </div>
+                    <button id="closeReportBtn" class="close-btn">×</button>
+                </div>
+                <div class="report-actions">
+                    <button id="downloadPdfBtn" class="btn btn-pink btn-sm">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </button>
+                    <button id="downloadCsvBtn" class="btn btn-outline btn-sm">
+                        <i class="fa-solid fa-file-csv"></i> CSV
+                    </button>
+                </div>
+                <div id="reportTable-wrapper">
+                    <table id="reportTable"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const url_gauteng = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWyo15IIbxOM816mdPqIlpiqqZUJVxOWm74_GClOZsmnd4QvajUmTsoyRwoH5KBEK_ZRv00OLVYvZW/pub?gid=1377447223&single=true&output=csv';
+    const url_limpopo = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWyo15IIbxOM816mdPqIlpiqqZUJVxOWm74_GClOZsmnd4QvajUmTsoyRwoH5KBEK_ZRv00OLVYvZW/pub?gid=696386604&single=true&output=csv';
+    const url_bbi309  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWyo15IIbxOM816mdPqIlpiqqZUJVxOWm74_GClOZsmnd4QvajUmTsoyRwoH5KBEK_ZRv00OLVYvZW/pub?gid=1522339905&single=true&output=csv';
+
+    const map = L.map('map').setView([-29.0, 24.0], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const shadowUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png';
+    const iconSize = [25, 41], iconAnchor = [12, 41], popupAnchor = [1, -34], shadowSize = [41, 41];
+    const mk = url => L.icon({ iconUrl: url, shadowUrl, iconSize, iconAnchor, popupAnchor, shadowSize });
+
+    const purpleIcon = mk('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png');
+    const navyIcon   = mk('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png');
+    const yellowIcon = mk('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png');
+    const redIcon    = mk('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png');
+    const greyIcon   = mk('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png');
+    const greenIcon  = mk('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png');
+
+    const gautengLayer  = L.layerGroup().addTo(map);
+    const limpopoLayer  = L.layerGroup().addTo(map);
+    const bbi309Layer   = L.layerGroup().addTo(map);
+    const simulationLayer = L.layerGroup().addTo(map);
+
+    const purpleMarkers = [], yellowMarkers = [];
+    let replacementReportData = [];
+
+    // Layer toggles via sidebar
+    let layerStates = { gauteng: true, limpopo: true, bbi309: true };
+    function setupLayerToggles() {
+        document.getElementById('toggleGauteng').addEventListener('click', function() {
+            layerStates.gauteng = !layerStates.gauteng;
+            layerStates.gauteng ? map.addLayer(gautengLayer) : map.removeLayer(gautengLayer);
+            this.style.opacity = layerStates.gauteng ? '1' : '0.45';
+        });
+        document.getElementById('toggleLimpopo').addEventListener('click', function() {
+            layerStates.limpopo = !layerStates.limpopo;
+            layerStates.limpopo ? map.addLayer(limpopoLayer) : map.removeLayer(limpopoLayer);
+            this.style.opacity = layerStates.limpopo ? '1' : '0.45';
+        });
+        document.getElementById('toggle309').addEventListener('click', function() {
+            layerStates.bbi309 = !layerStates.bbi309;
+            layerStates.bbi309 ? map.addLayer(bbi309Layer) : map.removeLayer(bbi309Layer);
+            this.style.opacity = layerStates.bbi309 ? '1' : '0.45';
+        });
+    }
+
+    function loadAndProcessData(url, processFunction, onComplete) {
+        Papa.parse(url, {
+            download: true, header: true, skipEmptyLines: true,
+            complete: results => { results.data.forEach(row => processFunction(row)); if (onComplete) onComplete(); },
+            error: err => console.error(`Error:`, err)
+        });
+    }
+
+    function processGauteng(row) {
+        const gps = row['GPS Location'], mac = (row['MAC Address'] || '').toUpperCase();
+        if (gps && gps.includes(',')) {
+            const [lat, lon] = gps.split(',').map(Number);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                let icon = greyIcon;
+                const isPurple = mac.startsWith('44D1FA') || mac.startsWith('7C27');
+                if (isPurple) icon = purpleIcon;
+                else if (mac.startsWith('48BF')) icon = navyIcon;
+                const m = L.marker([lat, lon], { icon, deviceName: row['Device Name'], mac })
+                    .bindPopup(`<b>${row['Device Name']}</b><br><small style="color:#64748b">MAC: ${mac}</small><br>Status: ${row['Status'] || 'N/A'}`)
+                    .addTo(gautengLayer);
+                if (isPurple) purpleMarkers.push(m);
+            }
+        }
+    }
+
+    function processLimpopo(row) {
+        const gps = row['GPS Location'], mac = (row['MAC Address'] || '').toUpperCase();
+        if (gps && gps.includes(',')) {
+            const [lat, lon] = gps.split(',').map(Number);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                let icon = greyIcon;
+                const isPurple = mac.startsWith('44D1FA') || mac.startsWith('7C27');
+                if (isPurple) icon = purpleIcon;
+                else if (mac.startsWith('48BF')) icon = navyIcon;
+                const m = L.marker([lat, lon], { icon, deviceName: row['Device Name'], mac })
+                    .bindPopup(`<b>${row['Device Name']}</b><br><small style="color:#64748b">MAC: ${mac}</small><br>Status: ${row['status'] || 'N/A'}`)
+                    .addTo(limpopoLayer);
+                if (isPurple) purpleMarkers.push(m);
+            }
+        }
+    }
+
+    function processBbi309(row) {
+        const lat = parseFloat(row['GPS Lattitude']), lon = parseFloat(row['GPS Longitude']);
+        const mac = (row['MAC Address'] || '').toUpperCase();
+        if (!isNaN(lat) && !isNaN(lon)) {
+            const isYellow = mac.startsWith('48BF');
+            const icon = isYellow ? yellowIcon : redIcon;
+            const m = L.marker([lat, lon], { icon, deviceName: row['HH Full Name'], mac })
+                .bindPopup(`<b>${row['HH Full Name']}</b><br><small style="color:#64748b">MAC: ${mac}</small><br>Status: ${row['Status'] || 'N/A'}`)
+                .addTo(bbi309Layer);
+            if (isYellow) yellowMarkers.push(m);
+        }
+    }
+
+    function findClosestMarker(sourceMarker, targetMarkers, maxDistance) {
+        let closestMarker = null, minDistance = maxDistance;
+        targetMarkers.forEach(t => {
+            const d = sourceMarker.getLatLng().distanceTo(t.getLatLng());
+            if (d < minDistance) { minDistance = d; closestMarker = t; }
+        });
+        return closestMarker ? { marker: closestMarker, distance: minDistance } : null;
+    }
+
+    function simulateReplacement(purpleMarker) {
+        clearSimulation();
+        const maxDistanceMeters = parseFloat(document.getElementById('distanceInput').value) * 1000;
+        const result = findClosestMarker(purpleMarker, yellowMarkers, maxDistanceMeters);
+        if (result && result.marker) {
+            const replacement = result.marker;
+            const distance = (result.distance / 1000).toFixed(2);
+            replacement.setIcon(greenIcon);
+            L.polyline([purpleMarker.getLatLng(), replacement.getLatLng()], { color: '#e91e8c', weight: 2, dashArray: '6,4' }).addTo(simulationLayer);
+            purpleMarker.bindPopup(`<b>${purpleMarker.options.deviceName}</b><br><small style="color:#64748b">MAC: ${purpleMarker.options.mac}</small><hr style="border-color:#e2e8f0;margin:6px 0"><b>Nearest Replacement:</b><br>${replacement.options.deviceName}<br><small style="color:#e91e8c">Distance: ${distance} km</small>`).openPopup();
+            document.getElementById('clearBtn').style.display = 'inline-flex';
+        } else {
+            const maxKm = parseFloat(document.getElementById('distanceInput').value);
+            purpleMarker.bindPopup(`<b>${purpleMarker.options.deviceName}</b><br><span style="color:#ef4444;font-size:0.82rem">No replacement found within ${maxKm} km.</span>`).openPopup();
+        }
+    }
+
+    function clearSimulation() {
+        simulationLayer.clearLayers();
+        yellowMarkers.forEach(m => m.setIcon(yellowIcon));
+        document.getElementById('clearBtn').style.display = 'none';
+        map.closePopup();
+    }
+
+    function generateReplacementReport() {
+        clearSimulation();
+        const maxDistanceKm = parseFloat(document.getElementById('distanceInput').value);
+        const maxDistanceMeters = maxDistanceKm * 1000;
+        document.getElementById('reportTitle').innerText = `Replacements found within ${maxDistanceKm} km`;
+        replacementReportData = [];
+        let available = [...yellowMarkers];
+        purpleMarkers.forEach(purple => {
+            if (!available.length) return;
+            const result = findClosestMarker(purple, available, maxDistanceMeters);
+            if (result && result.marker) {
+                replacementReportData.push({
+                    purpleName: purple.options.deviceName,
+                    purpleMac: purple.options.mac,
+                    yellowName: result.marker.options.deviceName,
+                    yellowMac: result.marker.options.mac,
+                    distance: (result.distance / 1000).toFixed(2) + ' km'
+                });
+                available = available.filter(m => m !== result.marker);
+            }
+        });
+        replacementReportData.sort((a, b) => a.purpleName.localeCompare(b.purpleName));
+        const table = document.getElementById('reportTable');
+        table.innerHTML = `<thead><tr><th>Device to Replace</th><th>MAC</th><th>Assigned Replacement</th><th>MAC</th><th>Distance</th></tr></thead><tbody></tbody>`;
+        const tbody = table.querySelector('tbody');
+        if (!replacementReportData.length) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#64748b">No replacements found within ${maxDistanceKm} km.</td></tr>`;
+        } else {
+            replacementReportData.forEach(item => {
+                const row = tbody.insertRow();
+                row.innerHTML = `<td>${item.purpleName}</td><td><code style="font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px">${item.purpleMac}</code></td><td>${item.yellowName}</td><td><code style="font-size:0.75rem;background:#f1f5f9;padding:2px 6px;border-radius:4px">${item.yellowMac}</code></td><td><span style="color:#e91e8c;font-weight:600">${item.distance}</span></td>`;
+            });
+        }
+        const rc = document.getElementById('reportContainer');
+        rc.style.display = 'flex';
+        rc.style.flexDirection = 'column';
+    }
+
+    function setupEventListeners() {
+        purpleMarkers.forEach(m => m.off('click').on('click', () => simulateReplacement(m)));
+        document.getElementById('generateReportBtn').addEventListener('click', generateReplacementReport);
+        document.getElementById('clearBtn').addEventListener('click', clearSimulation);
+        document.getElementById('closeReportBtn').addEventListener('click', () => {
+            document.getElementById('reportContainer').style.display = 'none';
+        });
+        document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const km = document.getElementById('distanceInput').value;
+            doc.text(`Replacement Report (within ${km} km)`, 14, 15);
+            doc.autoTable({
+                startY: 20,
+                head: [['Device to Replace', 'MAC', 'Assigned Replacement', 'MAC', 'Distance']],
+                body: replacementReportData.map(Object.values),
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [233, 30, 140] }
+            });
+            doc.save(`replacement-report-${km}km.pdf`);
+        });
+        document.getElementById('downloadCsvBtn').addEventListener('click', () => {
+            const km = document.getElementById('distanceInput').value;
+            let csv = "data:text/csv;charset=utf-8,Device to Replace,MAC,Assigned Replacement,MAC,Distance\r\n";
+            replacementReportData.forEach(i => { csv += `"${i.purpleName}","${i.purpleMac}","${i.yellowName}","${i.yellowMac}","${i.distance}"\r\n`; });
+            const a = document.createElement('a');
+            a.href = encodeURI(csv);
+            a.download = `replacement-report-${km}km.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        });
+        setupLayerToggles();
+    }
+
+    const promises = [
+        new Promise(r => loadAndProcessData(url_gauteng, processGauteng, r)),
+        new Promise(r => loadAndProcessData(url_limpopo, processLimpopo, r)),
+        new Promise(r => loadAndProcessData(url_bbi309, processBbi309, r)),
+    ];
+    Promise.all(promises).then(() => { console.log("All data loaded."); setupEventListeners(); });
+    </script>
+</body>
+</html>
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
     <!-- Leaflet JavaScript -->

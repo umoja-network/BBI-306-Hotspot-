@@ -378,6 +378,22 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.12);
   }
 
+  .pill-secondary {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(15,23,42,0.08);
+      color: var(--text-primary);
+      min-width: auto;
+      white-space: nowrap;
+  }
+
+  .pill-secondary:hover {
+      background: rgba(15,23,42,0.12);
+      transform: scale(1.03);
+  }
+
   .pill-green  { background: var(--green); }
   .pill-red    { background: var(--red); }
   .pill-blue   { background: var(--blue); }
@@ -752,7 +768,7 @@
     }
 
     async function fetchSheetRows(sheetName) {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName + "!A:AZ")}?key=${apiKey}`;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName + "!A:AM")}?key=${apiKey}`;
       const res = await fetch(url);
       const data = await res.json();
       return data.values || [];
@@ -768,6 +784,11 @@
     }
 
     function isOffline(row) { return statusEmoji(row) === "🔴"; }
+
+    function isG5010(row) {
+      const g5010Col = (row[37] || "").toString().trim().toUpperCase();
+      return g5010Col.startsWith("G5010");
+    }
 
     // ── MODAL ──
     let allDeviceRows = [], currentSheetCache = {};
@@ -851,6 +872,8 @@
       switch (type) {
         case "ax820-online":    return row => isAX820(row)  && statusEmoji(row) === "🟢";
         case "ax820-offline":   return row => isAX820(row)  && isOffline(row);
+        case "ax820-g5010-online":    return row => isAX820(row) && statusEmoji(row) === "🟢" && isG5010(row);
+        case "ax820-g5010-offline":   return row => isAX820(row) && isOffline(row) && isG5010(row);
         case "baicells-online": return row => !isAX820(row) && statusEmoji(row) === "🟢";
         case "baicells-offline":return row => !isAX820(row) && isOffline(row);
         default: return () => true;
@@ -866,11 +889,14 @@
     }
 
     // ── BUILD REGION CARD ──
-    function buildRegionCard(id, regionName, ax820Online, ax820Offline, baicellsOnline, baicellsOffline) {
+    function buildRegionCard(id, regionName, ax820Online, ax820Offline, baicellsOnline, baicellsOffline, ax820OnlineExtra, ax820OfflineExtra) {
       const totalOnline  = ax820Online + baicellsOnline;
       const totalOffline = ax820Offline + baicellsOffline;
       const grand        = totalOnline + totalOffline;
       const onlinePct    = grand ? ((totalOnline / grand) * 100).toFixed(1) : "0";
+
+      const extraOnlineMarkup = ax820OnlineExtra != null ? `<button class="pill pill-secondary clickable" data-action="drill" data-label="AX820 Online With G5010 — ${regionName}" data-region="${regionName}" data-type="ax820-g5010-online">With G5010 (${ax820OnlineExtra})</button>` : "";
+      const extraOfflineMarkup = ax820OfflineExtra != null ? `<button class="pill pill-secondary clickable" data-action="drill" data-label="AX820 Offline With G5010 — ${regionName}" data-region="${regionName}" data-type="ax820-g5010-offline">With G5010 (${ax820OfflineExtra})</button>` : "";
 
       document.getElementById(id).innerHTML = `
         <div class="region-card-header">
@@ -880,13 +906,19 @@
         <div class="region-card-body">
           <div class="region-stat-row">
             <span class="region-stat-label">AX820 Online</span>
-            <button class="pill pill-green clickable" data-action="drill"
-              data-label="AX820 Online — ${regionName}" data-region="${regionName}" data-type="ax820-online">${ax820Online}</button>
+            <div>
+              <button class="pill pill-green clickable" data-action="drill"
+                data-label="AX820 Online — ${regionName}" data-region="${regionName}" data-type="ax820-online">${ax820Online}</button>
+              ${extraOnlineMarkup}
+            </div>
           </div>
           <div class="region-stat-row">
             <span class="region-stat-label">AX820 Offline</span>
-            <button class="pill pill-red clickable" data-action="drill"
-              data-label="AX820 Offline — ${regionName}" data-region="${regionName}" data-type="ax820-offline">${ax820Offline}</button>
+            <div>
+              <button class="pill pill-red clickable" data-action="drill"
+                data-label="AX820 Offline — ${regionName}" data-region="${regionName}" data-type="ax820-offline">${ax820Offline}</button>
+              ${extraOfflineMarkup}
+            </div>
           </div>
           <div class="region-stat-row">
             <span class="region-stat-label">Baicells Online</span>
@@ -933,6 +965,8 @@
 
       // Gauteng
       let ax820OnG, ax820OffG, baiOnG, baiOffG;
+      let ax820OnlineExtraG = null;
+      let ax820OfflineExtraG = null;
       if (withSwaps) {
         ax820OnG  = await fetchCell("Gauteng_swap_stats!B23");
         ax820OffG = await fetchCell("Gauteng_swap_stats!B24");
@@ -943,11 +977,14 @@
         ax820OffG = await fetchCell("Gauteng_306_Stats!B24");
         baiOnG    = await fetchCell("Gauteng_306_Stats!B13");
         baiOffG   = await fetchCell("Gauteng_306_Stats!B14");
+        ax820OnlineExtraG = await fetchCell("Gauteng_306_Stats!B26");
+        ax820OfflineExtraG = await fetchCell("Gauteng_306_Stats!B27");
       }
-      buildRegionCard('gauteng-card', 'Gauteng', ax820OnG, ax820OffG, baiOnG, baiOffG);
+      buildRegionCard('gauteng-card', 'Gauteng', ax820OnG, ax820OffG, baiOnG, baiOffG, ax820OnlineExtraG, ax820OfflineExtraG);
 
       // Limpopo
-      let ax820OnL, ax820OffL, baiOnL, baiOffL;
+      let ax820OnlineExtraL = null;
+      let ax820OfflineExtraL = null;
       if (withSwaps) {
         ax820OnL  = await fetchCell("Limpopo_swap_stats!B22");
         ax820OffL = await fetchCell("Limpopo_swap_stats!B23");
@@ -958,8 +995,10 @@
         ax820OffL = await fetchCell("Limpopo_306_Stats!G2");
         baiOnL    = await fetchCell("Limpopo_306_Stats!A6");
         baiOffL   = await fetchCell("Limpopo_306_Stats!B6");
+        ax820OnlineExtraL = await fetchCell("Limpopo_306_Stats!H2");
+        ax820OfflineExtraL = await fetchCell("Limpopo_306_Stats!I2");
       }
-      buildRegionCard('limpopo-card', 'Limpopo', ax820OnL, ax820OffL, baiOnL, baiOffL);
+      buildRegionCard('limpopo-card', 'Limpopo', ax820OnL, ax820OffL, baiOnL, baiOffL, ax820OnlineExtraL, ax820OfflineExtraL);
 
       // Summary
       const gOn  = ax820OnG + baiOnG,  gOff = ax820OffG + baiOffG;
